@@ -1,0 +1,13 @@
+[package]
+name = "pyevtx_rs"
+version = "0.1.0"
+authors = ["Omer Ben-Amram <omerbenamram@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+evtx = "0.1.2"
+pyo3 = "0.6.0"
+failure = "0.1.5"
