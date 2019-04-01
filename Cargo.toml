@@ -8,6 +8,6 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-evtx = "0.1.2"
+evtx = "0.1.4"
 pyo3 = "0.6.0"
 failure = "0.1.5"

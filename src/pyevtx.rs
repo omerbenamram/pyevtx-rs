@@ -4,6 +4,7 @@ use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyDict};
 use pyo3::PyIterProtocol;
 use std::collections::HashMap;
+use std::panic;
 
 #[pyclass]
 pub struct PyEvtxParser {
