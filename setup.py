@@ -1,3 +1,4 @@
+import os
 import sys
 
 from setuptools import setup
@@ -34,7 +35,7 @@ setup(
         RustExtension(
             "pyevtx_rs.evtx_parser",
             "Cargo.toml",
-            debug=True,
+            debug=os.getenv("PYEVTX_DEBUG", False),
             rustc_flags=get_py_version_cfgs(),
         ),
     ],
