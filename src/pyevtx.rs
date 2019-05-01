@@ -6,14 +6,14 @@ use pyo3::PyIterProtocol;
 use std::collections::HashMap;
 use std::panic;
 use std::fs::File;
-use std::sync::{Arc, Mutex};
-use evtx::xml_output::XmlOutput;
+use evtx::{XmlOutput, IntoIterChunks, ParserSettings};
 
 #[pyclass]
 pub struct PyEvtxParser {
-    inner: EvtxParser<File>,
+    inner: IntoIterChunks<File>,
     records: Option<Vec<Result<SerializedEvtxRecord, failure::Error>>>,
     current_chunk_number: u16,
+    settings: ParserSettings,
 }
 
 #[pymethods]
@@ -25,9 +25,10 @@ impl PyEvtxParser {
 
         obj.init({
             PyEvtxParser {
-                inner: inner,
+                inner: inner.into_chunks(),
                 records: None,
                 current_chunk_number: 0,
+                settings: ParserSettings::new(),
             }
         });
 
@@ -59,49 +60,35 @@ impl PyEvtxParser {
     }
 
     fn next(&mut self) -> Option<PyObject> {
-        let parser = &mut self.inner;
-        let validate_checksum = parser.config.validate_checksums;
-        let chunk_count = parser.header.chunk_count;
-
         loop {
             if let Some(record) = self.records.as_mut().and_then(|records| records.pop()) {
                 return Some(PyEvtxParser::record_to_pyobject(record));
             }
 
-            match EvtxParser::allocate_chunk(
-                &mut parser.data,
-                self.current_chunk_number,
-                validate_checksum,
-            ) {
-                Err(err) => {
-                    // We try to read past the `chunk_count` to allow for dirty files.
-                    // But if we failed, it means we really are at the end of the file.
-                    if self.current_chunk_number >= chunk_count {
-                        return None;
-                    } else {
-                        self.current_chunk_number += 1;
-                        return Some(PyEvtxParser::record_to_pyobject(Err(err)));
-                    }
-                }
-                Ok(None) => {
-                    // We try to read past the `chunk_count` to allow for dirty files.
-                    // But if we get an empty chunk, we need to keep looking.
-                    // Increment and try again.
-                    self.current_chunk_number += 1;
-                }
-                Ok(Some(mut chunk)) => {
-                    self.current_chunk_number += 1;
+            let chunk = self.inner.next();
 
-                    match chunk.parse(&parser.config) {
+            match chunk {
+                None => return None,
+                Some(mut chunk_result) => {
+                    match chunk_result {
                         Err(err) => {
                             return Some(PyEvtxParser::record_to_pyobject(Err(err)));
-                        },
+                        }
                         Ok(mut chunk) => {
-                            self.records = Some(chunk.iter_serialized_records::<XmlOutput<Vec<u8>>>().collect());
+                            let parsed_chunk = chunk.parse(&self.settings);
+
+                            match parsed_chunk {
+                                Err(err) => {
+                                    return Some(PyEvtxParser::record_to_pyobject(Err(err)));
+                                }
+                                Ok(mut chunk) => {
+                                    self.records = Some(chunk.iter_serialized_records::<XmlOutput<Vec<u8>>>().collect());
+                                }
+                            }
                         }
                     }
                 }
-            };
+            }
         }
     }
 }
