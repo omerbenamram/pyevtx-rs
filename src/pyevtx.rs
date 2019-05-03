@@ -1,14 +1,18 @@
-use evtx::{EvtxParser, EvtxRecord};
+use evtx::{EvtxChunkData, EvtxParser, EvtxRecord, SerializedEvtxRecord};
+use evtx::{IntoIterChunks, ParserSettings, XmlOutput};
 use pyo3::exceptions::RuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyDict};
 use pyo3::PyIterProtocol;
 use std::collections::HashMap;
+use std::fs::File;
 use std::panic;
 
 #[pyclass]
 pub struct PyEvtxParser {
-    iter: Box<Iterator<Item = PyObject> + Send>,
+    inner: IntoIterChunks<File>,
+    records: Option<Vec<Result<SerializedEvtxRecord, failure::Error>>>,
+    settings: ParserSettings,
 }
 
 #[pymethods]
@@ -20,7 +24,9 @@ impl PyEvtxParser {
 
         obj.init({
             PyEvtxParser {
-                iter: Box::new(inner.records().into_iter().map(Self::record_to_pyobject)),
+                inner: inner.into_chunks(),
+                records: None,
+                settings: ParserSettings::new(),
             }
         });
 
@@ -29,7 +35,11 @@ impl PyEvtxParser {
 }
 
 impl PyEvtxParser {
-    fn record_to_pydict(gil: Python, record: EvtxRecord) -> PyResult<&PyDict> {
+    fn err_to_object(e: failure::Error, py: Python) -> PyObject {
+        PyErr::new::<RuntimeError, _>(format!("{}", e)).to_object(py)
+    }
+
+    fn record_to_pydict(gil: Python, record: SerializedEvtxRecord) -> PyResult<&PyDict> {
         let pyrecord = PyDict::new(gil);
 
         pyrecord.set_item("event_record_id", record.event_record_id)?;
@@ -37,7 +47,8 @@ impl PyEvtxParser {
         pyrecord.set_item("data", record.data)?;
         Ok(pyrecord)
     }
-    fn record_to_pyobject(r: Result<EvtxRecord, failure::Error>) -> PyObject {
+
+    fn record_to_pyobject(r: Result<SerializedEvtxRecord, failure::Error>) -> PyObject {
         let gil = Python::acquire_gil();
         let py = gil.python();
 
@@ -46,7 +57,45 @@ impl PyEvtxParser {
                 Ok(dict) => dict.to_object(py),
                 Err(e) => e.to_object(py),
             },
-            Err(e) => PyErr::new::<RuntimeError, _>(format!("{}", e)).to_object(py),
+            Err(e) => PyEvtxParser::err_to_object(e, py),
+        }
+    }
+
+    fn next(&mut self) -> Option<PyObject> {
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+
+        loop {
+            if let Some(record) = self.records.as_mut().and_then(|records| records.pop()) {
+                return Some(PyEvtxParser::record_to_pyobject(record));
+            }
+
+            let chunk = self.inner.next();
+
+            match chunk {
+                None => return None,
+                Some(mut chunk_result) => match chunk_result {
+                    Err(e) => {
+                        return Some(PyEvtxParser::err_to_object(e, py));
+                    }
+                    Ok(mut chunk) => {
+                        let parsed_chunk = chunk.parse(&self.settings);
+
+                        match parsed_chunk {
+                            Err(e) => {
+                                return Some(PyEvtxParser::err_to_object(e, py));
+                            }
+                            Ok(mut chunk) => {
+                                self.records = Some(
+                                    chunk
+                                        .iter_serialized_records::<XmlOutput<Vec<u8>>>()
+                                        .collect(),
+                                );
+                            }
+                        }
+                    }
+                },
+            }
         }
     }
 }
@@ -57,11 +106,13 @@ impl PyIterProtocol for PyEvtxParser {
         Ok(slf.into())
     }
     fn __next__(mut slf: PyRefMut<Self>) -> PyResult<Option<PyObject>> {
-        Ok(slf.iter.next())
+        Ok(slf.next())
     }
 }
 
 #[pymodule]
 fn evtx_parser(py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<PyEvtxParser>()
+    m.add_class::<PyEvtxParser>()?;
+
+    Ok(())
 }

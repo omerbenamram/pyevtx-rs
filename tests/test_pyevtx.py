@@ -14,7 +14,7 @@ def small_sample() -> str:
 def test_it_works():
     parser = PyEvtxParser("/Users/omerba/Workspace/evtx-rs/samples/security.evtx")
     records = list(parser)
-    assert len(records) == 2201
+    assert len(records) == 2261
 
 
 def test_small_sample(small_sample):
