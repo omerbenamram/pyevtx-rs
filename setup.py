@@ -33,8 +33,8 @@ setup(
     packages=["evtx"],
     rust_extensions=[
         RustExtension(
-            "pyevtx_rs.evtx_parser",
-            "Cargo.toml",
+            target="evtx.parser",
+            path="Cargo.toml",
             debug=os.getenv("EVTX_DEBUG", False),
             rustc_flags=get_py_version_cfgs(),
         ),
