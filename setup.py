@@ -19,8 +19,8 @@ def get_py_version_cfgs():
 install_requires = []
 
 setup(
-    name="pyevtx-rs",
-    version="0.1.0",
+    name="evtx",
+    version="0.2.5",
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Development Status :: 3 - Alpha",
@@ -30,15 +30,20 @@ setup(
         "Operating System :: POSIX",
         "Operating System :: MacOS :: MacOS X",
     ],
-    packages=["pyevtx_rs"],
+    packages=["evtx"],
     rust_extensions=[
         RustExtension(
             "pyevtx_rs.evtx_parser",
             "Cargo.toml",
-            debug=os.getenv("PYEVTX_DEBUG", False),
+            debug=os.getenv("EVTX_DEBUG", False),
             rustc_flags=get_py_version_cfgs(),
         ),
     ],
+    extras_require={
+        'dev': [
+            'pytest'
+        ]
+    },
     install_requires=install_requires,
     include_package_data=True,
     zip_safe=False,

@@ -1,6 +1,6 @@
 [package]
-name = "pyevtx_rs"
-version = "0.1.0"
+name = "pyevtx"
+version = "0.2.5"
 authors = ["Omer Ben-Amram <omerbenamram@gmail.com>"]
 edition = "2018"
 

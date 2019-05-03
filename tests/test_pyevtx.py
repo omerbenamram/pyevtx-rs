@@ -1,7 +1,7 @@
 import pytest
 
 from pathlib import Path
-from pyevtx_rs.evtx_parser import PyEvtxParser
+from evtx.evtx_parser import PyEvtxParser
 
 SAMPLES = Path(__file__).parent.parent / 'samples'
 
