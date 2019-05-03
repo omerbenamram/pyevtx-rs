@@ -1,18 +1,17 @@
-use evtx::{EvtxParser, EvtxRecord, SerializedEvtxRecord, EvtxChunkData};
+use evtx::{EvtxChunkData, EvtxParser, EvtxRecord, SerializedEvtxRecord};
+use evtx::{IntoIterChunks, ParserSettings, XmlOutput};
 use pyo3::exceptions::RuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyDict};
 use pyo3::PyIterProtocol;
 use std::collections::HashMap;
-use std::panic;
 use std::fs::File;
-use evtx::{XmlOutput, IntoIterChunks, ParserSettings};
+use std::panic;
 
 #[pyclass]
 pub struct PyEvtxParser {
     inner: IntoIterChunks<File>,
     records: Option<Vec<Result<SerializedEvtxRecord, failure::Error>>>,
-    current_chunk_number: u16,
     settings: ParserSettings,
 }
 
@@ -27,7 +26,6 @@ impl PyEvtxParser {
             PyEvtxParser {
                 inner: inner.into_chunks(),
                 records: None,
-                current_chunk_number: 0,
                 settings: ParserSettings::new(),
             }
         });
@@ -69,25 +67,27 @@ impl PyEvtxParser {
 
             match chunk {
                 None => return None,
-                Some(mut chunk_result) => {
-                    match chunk_result {
-                        Err(err) => {
-                            return Some(PyEvtxParser::record_to_pyobject(Err(err)));
-                        }
-                        Ok(mut chunk) => {
-                            let parsed_chunk = chunk.parse(&self.settings);
+                Some(mut chunk_result) => match chunk_result {
+                    Err(err) => {
+                        return Some(PyEvtxParser::record_to_pyobject(Err(err)));
+                    }
+                    Ok(mut chunk) => {
+                        let parsed_chunk = chunk.parse(&self.settings);
 
-                            match parsed_chunk {
-                                Err(err) => {
-                                    return Some(PyEvtxParser::record_to_pyobject(Err(err)));
-                                }
-                                Ok(mut chunk) => {
-                                    self.records = Some(chunk.iter_serialized_records::<XmlOutput<Vec<u8>>>().collect());
-                                }
+                        match parsed_chunk {
+                            Err(err) => {
+                                return Some(PyEvtxParser::record_to_pyobject(Err(err)));
+                            }
+                            Ok(mut chunk) => {
+                                self.records = Some(
+                                    chunk
+                                        .iter_serialized_records::<XmlOutput<Vec<u8>>>()
+                                        .collect(),
+                                );
                             }
                         }
                     }
-                }
+                },
             }
         }
     }
