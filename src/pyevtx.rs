@@ -35,6 +35,10 @@ impl PyEvtxParser {
 }
 
 impl PyEvtxParser {
+    fn err_to_object(e: failure::Error, py: Python) -> PyObject {
+        PyErr::new::<RuntimeError, _>(format!("{}", e)).to_object(py)
+    }
+
     fn record_to_pydict(gil: Python, record: SerializedEvtxRecord) -> PyResult<&PyDict> {
         let pyrecord = PyDict::new(gil);
 
@@ -53,11 +57,14 @@ impl PyEvtxParser {
                 Ok(dict) => dict.to_object(py),
                 Err(e) => e.to_object(py),
             },
-            Err(e) => PyErr::new::<RuntimeError, _>(format!("{}", e)).to_object(py),
+            Err(e) => PyEvtxParser::err_to_object(e, py),
         }
     }
 
     fn next(&mut self) -> Option<PyObject> {
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+
         loop {
             if let Some(record) = self.records.as_mut().and_then(|records| records.pop()) {
                 return Some(PyEvtxParser::record_to_pyobject(record));
@@ -68,15 +75,15 @@ impl PyEvtxParser {
             match chunk {
                 None => return None,
                 Some(mut chunk_result) => match chunk_result {
-                    Err(err) => {
-                        return Some(PyEvtxParser::record_to_pyobject(Err(err)));
+                    Err(e) => {
+                        return Some(PyEvtxParser::err_to_object(e, py));
                     }
                     Ok(mut chunk) => {
                         let parsed_chunk = chunk.parse(&self.settings);
 
                         match parsed_chunk {
-                            Err(err) => {
-                                return Some(PyEvtxParser::record_to_pyobject(Err(err)));
+                            Err(e) => {
+                                return Some(PyEvtxParser::err_to_object(e, py));
                             }
                             Ok(mut chunk) => {
                                 self.records = Some(
