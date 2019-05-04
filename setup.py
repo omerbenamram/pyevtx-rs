@@ -30,10 +30,9 @@ setup(
         "Operating System :: POSIX",
         "Operating System :: MacOS :: MacOS X",
     ],
-    packages=["evtx"],
     rust_extensions=[
         RustExtension(
-            target="evtx.parser",
+            target="evtx",
             path="Cargo.toml",
             debug=os.getenv("EVTX_DEBUG", False),
             rustc_flags=get_py_version_cfgs(),

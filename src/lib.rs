@@ -112,7 +112,7 @@ impl PyIterProtocol for PyEvtxParser {
 }
 
 #[pymodule]
-fn parser(py: Python, m: &PyModule) -> PyResult<()> {
+fn evtx(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyEvtxParser>()?;
 
     Ok(())

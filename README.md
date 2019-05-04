@@ -6,17 +6,17 @@ Python bindings for `https://github.com/omerbenamram/evtx/`.
 
 Available on PyPi - https://pypi.org/project/evtx/.
 
-To install from PyPi - `pip install evtx --no-binary`
-This installs the library from sources, so having `setuptools-rust` and a recent nightly compiler is needed.
+To install from PyPi - `pip install evtx`
 
-### Wheels
+Wheels are built using `PyO3-pack`
 
-Currently `PyO3-pack` produces broken wheels - i'll need to find a solution for this
-
-Wheels are planned for:
+Wheels are currently built for:
 - macOS (python 3.7)
 - `manylinux1` (python3.5, python3.6, python3.7) 
 
+Windows wheels and additional macOS python3 wheels are planned.
+
+Windows users can still install the library from sources with a working recent nightly rust compiler and `setuptools-rust`.
 
 ## Usage
 
