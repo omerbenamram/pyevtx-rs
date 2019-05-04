@@ -16,7 +16,7 @@ def get_py_version_cfgs():
     return out_cfg
 
 
-install_requires = []
+install_requires = ["setuptools-rust"]
 
 setup(
     name="evtx",
