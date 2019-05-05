@@ -23,7 +23,7 @@ Windows users can still install the library from sources with a working recent n
 The API surface is currently fairly limited (only yields events as XML documents), but is planned to be expanded in the future.
 
 ```python
-from evtx.parser import PyEvtxParser
+from evtx import PyEvtxParser
 
 
 def main():
