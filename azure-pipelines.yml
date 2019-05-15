@@ -4,61 +4,115 @@ trigger:
   tags:
     include: ['*']
 
-strategy:
-  matrix:
-    windows-stable:
-      imageName: 'vs2017-win2016'
-      target: 'x86_64-pc-windows-msvc'
-      rustup_toolchain: nightly
-    mac-stable:
-      imageName: 'macos-10.13'
-      target: 'x86_64-apple-darwin'
-      rustup_toolchain: nightly
-    linux-stable:
-      imageName: 'ubuntu-16.04'
-      target: 'x86_64-unknown-linux-gnu'
-      rustup_toolchain: nightly
+jobs:
+- job:
+  displayName: manylinux
+  pool:
+    vmImage: 'ubuntu-16.04'
 
-pool:
-  vmImage: $(imageName)
+  resources:
+  containers:
+    - container: pyo3-pack
+      image: konstin2/pyo3-pack
+      volumes:
+       - $(Build.SourcesDirectory)/io
 
+  container: pyo3-pack
 
-steps:
-  - script: |
+  steps:
+  - script: build
+
+- job:
+  displayName: macOS-10.13
+
+  pool:
+    vmImage: 'macOS-10.13'
+
+  steps:
+    - script: |
       curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain $RUSTUP_TOOLCHAIN
       echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
-    displayName: Install rust
-    condition: ne( variables['Agent.OS'], 'Windows_NT' )
-  
+    displayName: "Install rust"  
+
+    - bash: |
+        MY_TAG="$(Build.SourceBranch)"
+        MY_TAG=${MY_TAG#refs/tags/}
+        echo $MY_TAG
+        echo "##vso[task.setvariable variable=build.my_tag]$MY_TAG"
+      displayName: "Create tag variable"
+    
+    - bash: |
+        DATE="$(date +%Y-%m-%d)"
+        echo "##vso[task.setvariable variable=build.date]$DATE"
+      displayName: "Create date variable"
+
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.6'
+        architecture: 'x64'
+
+    - script: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install pyo3-pack
+      displayName: 'Install pyo3-pack'
+
+    - script: |
+        pyo3-pack build -o $(Build.BinariesDirectory)
+      displayName: 'PyO3-pack build'
+
+    - script: |
+        pip install $(Build.BinariesDirectory)/evtx-$(MY_TAG)-cp36-cp36m-macosx_10_9_x86_64.whl
+      displayName: 'Install new wheel'
+
+    - script: |
+        pip install pytest pytest-azurepipelines
+        pytest
+      displayName: 'pytest'
+
+
+- job: 
+  displayName: Windows
+
+  pool:
+    vmImage: 'vs2017-win2016'
+
   - script: |
       curl -sSf -o rustup-init.exe https://win.rustup.rs
       rustup-init.exe -y --default-toolchain %RUSTUP_TOOLCHAIN%
       echo "##vso[task.setvariable variable=PATH;]%PATH%;%USERPROFILE%\.cargo\bin"
-    displayName: Windows install rust
-    condition: eq( variables['Agent.OS'], 'Windows_NT' )
-  
-  - bash: |
-      MY_TAG="$(Build.SourceBranch)"
-      MY_TAG=${MY_TAG#refs/tags/}
-      echo $MY_TAG
-      echo "##vso[task.setvariable variable=build.my_tag]$MY_TAG"
-    displayName: "Create tag variable"
-  
-  - bash: |
-      DATE="$(date +%Y-%m-%d)"
-      echo "##vso[task.setvariable variable=build.date]$DATE"
-    displayName: "Create date variable"
+    displayName: Install rust
+    
+    - bash: |
+        MY_TAG="$(Build.SourceBranch)"
+        MY_TAG=${MY_TAG#refs/tags/}
+        echo $MY_TAG
+        echo "##vso[task.setvariable variable=build.my_tag]$MY_TAG"
+      displayName: "Create tag variable"
+    
+    - bash: |
+        DATE="$(date +%Y-%m-%d)"
+        echo "##vso[task.setvariable variable=build.date]$DATE"
+      displayName: "Create date variable"
 
-  - script: |
-      python -m pip install --upgrade pip setuptools wheel
-      pip install pyo3-pack
-    displayName: 'Install pyo3-pack'
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.6'
+        architecture: 'x64'
 
-  - script: |
-      pip install pytest pytest-azurepipelines
-      pytest
-    displayName: 'pytest'
+    - script: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install pyo3-pack
+      displayName: 'Install pyo3-pack'
 
-  - script: |
-      pyo3-pack build
-    displayName: 'PyO3-pack build'
+    - script: |
+        pyo3-pack build -o $(Build.BinariesDirectory)
+      displayName: 'PyO3-pack build'
+
+    - script: |
+        pip install $(Build.BinariesDirectory)/evtx-$(MY_TAG)-cp36-cp36m-macosx_10_9_x86_64.whl
+      displayName: 'Install new wheel'
+
+    - script: |
+        pip install pytest pytest-azurepipelines
+        pytest
+      displayName: 'pytest'
