@@ -16,7 +16,7 @@ jobs:
       - $(Build.SourcesDirectory)/io
 
   steps:
-  - script: build
+  - script: /root/.cargo/bin/pyo3-pack build
 
 - job:
   displayName: macOS-10.13
@@ -60,7 +60,7 @@ jobs:
       displayName: 'PyO3-pack build'
 
     - script: |
-        pip install $(Build.BinariesDirectory)/evtx-$(MY_TAG)-cp36-cp36m-macosx_10_9_x86_64.whl
+        pip install $(Build.BinariesDirectory)/evtx-$(build.my_tag)-cp36-cp36m-macosx_10_9_x86_64.whl
       displayName: 'Install new wheel'
 
     - script: |
@@ -112,7 +112,7 @@ jobs:
       displayName: 'PyO3-pack build'
 
     - script: |
-        pip install $(Build.BinariesDirectory)/evtx-$(MY_TAG)-cp36-cp36m-win_amd64.whl
+        pip install $(Build.BinariesDirectory)/evtx-$(build.my_tag)-cp36-cp36m-win_amd64.whl
       displayName: 'Install new wheel'
 
     - script: |
