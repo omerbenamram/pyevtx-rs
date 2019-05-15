@@ -159,7 +159,7 @@ impl PyIterProtocol for PyEvtxParser {
         slf.records()
     }
     fn __next__(_slf: PyRefMut<Self>) -> PyResult<Option<PyObject>> {
-        Err(PyErr::new::<NotImplementedError, _>(""))
+        Err(PyErr::new::<NotImplementedError, _>("Using `next()` over `PyEvtxParser` is not supported. Try iterating over `PyEvtxParser(...).records()`"))
     }
 }
 
