@@ -40,7 +40,7 @@ def test_it_works_with_json(small_sample):
 
     assert records[0]['event_record_id'] == 7
     assert records[0]['timestamp'].endswith('UTC')
-    assert json.loads( records[0]['data'])['Event']['System']['EventID'] == 4673
+    assert json.loads(records[0]['data'])['Event']['System']['EventID'] == 4673
 
 
 def test_it_returns_error_when_iterating_twice(small_sample):
@@ -54,3 +54,10 @@ def test_it_returns_error_when_iterating_twice(small_sample):
 def test_it_returns_error_on_non_existing_path():
     with pytest.raises(RuntimeError):
         parser = PyEvtxParser("non_existing")
+
+
+def test_it_returns_error_when_using_next_on_parser(small_sample):
+    parser = PyEvtxParser(small_sample)
+
+    with pytest.raises(NotImplementedError):
+        next(parser)

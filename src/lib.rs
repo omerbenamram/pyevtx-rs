@@ -1,8 +1,7 @@
 #![allow(clippy::new_ret_no_self)]
 
-use evtx::{EvtxParser, SerializedEvtxRecord, JsonOutput};
-use evtx::{IntoIterChunks, ParserSettings, XmlOutput};
-use pyo3::exceptions::RuntimeError;
+use evtx::{EvtxParser, SerializedEvtxRecord, JsonOutput, IntoIterChunks, ParserSettings, XmlOutput};
+use pyo3::exceptions::{RuntimeError, NotImplementedError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::PyIterProtocol;
@@ -64,7 +63,7 @@ impl PyEvtxParser {
 }
 
 
-fn err_to_object(e: failure::Error, py: Python) -> PyObject {
+fn err_to_object(e: evtx::err::Error, py: Python) -> PyObject {
     PyErr::new::<RuntimeError, _>(format!("{}", e)).to_object(py)
 }
 
@@ -77,7 +76,7 @@ fn record_to_pydict(gil: Python, record: SerializedEvtxRecord) -> PyResult<&PyDi
     Ok(pyrecord)
 }
 
-fn record_to_pyobject(r: Result<SerializedEvtxRecord, failure::Error>) -> PyObject {
+fn record_to_pyobject(r: Result<SerializedEvtxRecord, evtx::err::Error>) -> PyObject {
     let gil = Python::acquire_gil();
     let py = gil.python();
 
@@ -94,7 +93,7 @@ fn record_to_pyobject(r: Result<SerializedEvtxRecord, failure::Error>) -> PyObje
 #[pyclass]
 pub struct PyRecordsIterator {
     inner: IntoIterChunks<File>,
-    records: Option<Vec<Result<SerializedEvtxRecord, failure::Error>>>,
+    records: Option<Vec<Result<SerializedEvtxRecord, evtx::err::Error>>>,
     settings: ParserSettings,
     output_format: OutputFormat,
 }
@@ -153,7 +152,7 @@ impl PyIterProtocol for PyEvtxParser {
         slf.records()
     }
     fn __next__(mut slf: PyRefMut<Self>) -> PyResult<Option<PyObject>> {
-        unimplemented!()
+        Err(PyErr::new::<NotImplementedError, _>(""))
     }
 }
 
