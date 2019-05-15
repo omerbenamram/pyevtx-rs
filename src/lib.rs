@@ -24,7 +24,7 @@ impl PyEvtxParser {
     #[new]
     fn new(obj: &PyRawObject, file: String) -> PyResult<()> {
         let inner = EvtxParser::from_path(file)
-            .map_err(|e| PyErr::new::<RuntimeError, _>(format!("{}", e)))?;
+            .map_err(evtx_err_to_pyerr)?;
 
         obj.init({
             PyEvtxParser {
@@ -57,14 +57,20 @@ impl PyEvtxParser {
             inner: inner.into_chunks(),
             records: None,
             settings: ParserSettings::new(),
-            output_format: output_format,
+            output_format,
         })
     }
 }
 
-
-fn err_to_object(e: evtx::err::Error, py: Python) -> PyObject {
-    PyErr::new::<RuntimeError, _>(format!("{}", e)).to_object(py)
+fn evtx_err_to_pyerr(e: evtx::err::Error) -> PyErr {
+    match e {
+        evtx::err::Error::IO { source, backtrace: _ } => {
+            source.into()
+        }
+        _ => {
+            PyErr::new::<RuntimeError, _>(format!("{}", e))
+        }
+    }
 }
 
 fn record_to_pydict(gil: Python, record: SerializedEvtxRecord) -> PyResult<&PyDict> {
@@ -76,16 +82,13 @@ fn record_to_pydict(gil: Python, record: SerializedEvtxRecord) -> PyResult<&PyDi
     Ok(pyrecord)
 }
 
-fn record_to_pyobject(r: Result<SerializedEvtxRecord, evtx::err::Error>) -> PyObject {
-    let gil = Python::acquire_gil();
-    let py = gil.python();
-
+fn record_to_pyobject(r: Result<SerializedEvtxRecord, evtx::err::Error>, py: Python) -> PyResult<PyObject> {
     match r {
         Ok(r) => match record_to_pydict(py, r) {
-            Ok(dict) => dict.to_object(py),
-            Err(e) => e.to_object(py),
+            Ok(dict) => Ok(dict.to_object(py)),
+            Err(e) => Ok(e.to_object(py)),
         },
-        Err(e) => err_to_object(e, py),
+        Err(e) => Err(evtx_err_to_pyerr(e)),
     }
 }
 
@@ -99,29 +102,29 @@ pub struct PyRecordsIterator {
 }
 
 impl PyRecordsIterator {
-    fn next(&mut self) -> Option<PyObject> {
+    fn next(&mut self) -> PyResult<Option<PyObject>> {
         let gil = Python::acquire_gil();
         let py = gil.python();
 
         loop {
             if let Some(record) = self.records.as_mut().and_then(Vec::pop) {
-                return Some(record_to_pyobject(record));
+                return record_to_pyobject(record, py).map(Some);
             }
 
             let chunk = self.inner.next();
 
             match chunk {
-                None => return None,
+                None => return Ok(None),
                 Some(chunk_result) => match chunk_result {
                     Err(e) => {
-                        return Some(err_to_object(e, py));
+                        return Err(evtx_err_to_pyerr(e));
                     }
                     Ok(mut chunk) => {
                         let parsed_chunk = chunk.parse(&self.settings);
 
                         match parsed_chunk {
                             Err(e) => {
-                                return Some(err_to_object(e, py));
+                                return Err(evtx_err_to_pyerr(e));
                             }
                             Ok(mut chunk) => {
                                 self.records = match self.output_format {
@@ -151,7 +154,7 @@ impl PyIterProtocol for PyEvtxParser {
     fn __iter__(mut slf: PyRefMut<Self>) -> PyResult<PyRecordsIterator> {
         slf.records()
     }
-    fn __next__(mut slf: PyRefMut<Self>) -> PyResult<Option<PyObject>> {
+    fn __next__(_slf: PyRefMut<Self>) -> PyResult<Option<PyObject>> {
         Err(PyErr::new::<NotImplementedError, _>(""))
     }
 }
@@ -163,12 +166,12 @@ impl PyIterProtocol for PyRecordsIterator {
         Ok(slf.into())
     }
     fn __next__(mut slf: PyRefMut<Self>) -> PyResult<Option<PyObject>> {
-        Ok(slf.next())
+        slf.next()
     }
 }
 
 #[pymodule]
-fn evtx(py: Python, m: &PyModule) -> PyResult<()> {
+fn evtx(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyEvtxParser>()?;
     m.add_class::<PyRecordsIterator>()?;
 
