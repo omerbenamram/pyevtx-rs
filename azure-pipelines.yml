@@ -42,14 +42,17 @@ jobs:
         echo "##vso[task.setvariable variable=build.date]$DATE"
       displayName: "Create date variable"
 
+    - bash: |
+        cargo install pyo3-pack
+      displayName: "Install PyO3-pack"
+
     - task: UsePythonVersion@0
       inputs:
         versionSpec: '3.6'
         architecture: 'x64'
-
+  
     - script: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install pyo3-pack
       displayName: 'Install pyo3-pack'
 
     - script: |
@@ -91,6 +94,10 @@ jobs:
         echo "##vso[task.setvariable variable=build.date]$DATE"
       displayName: "Create date variable"
 
+    - bash: |
+        cargo install pyo3-pack
+      displayName: "Install PyO3-pack"
+
     - task: UsePythonVersion@0
       inputs:
         versionSpec: '3.6'
@@ -98,7 +105,6 @@ jobs:
 
     - script: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install pyo3-pack
       displayName: 'Install pyo3-pack'
 
     - script: |
@@ -106,7 +112,7 @@ jobs:
       displayName: 'PyO3-pack build'
 
     - script: |
-        pip install $(Build.BinariesDirectory)/evtx-$(MY_TAG)-cp36-cp36m-macosx_10_9_x86_64.whl
+        pip install $(Build.BinariesDirectory)/evtx-$(MY_TAG)-cp36-cp36m-win_amd64.whl
       displayName: 'Install new wheel'
 
     - script: |
