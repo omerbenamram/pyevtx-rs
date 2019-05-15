@@ -8,6 +8,22 @@ use pyo3::PyIterProtocol;
 
 use std::fs::File;
 
+struct PyEvtxError(evtx::err::Error);
+
+impl From<PyEvtxError> for PyErr {
+    fn from(err: PyEvtxError) -> Self {
+        match err.0 {
+            evtx::err::Error::IO { source, backtrace: _ } => {
+                source.into()
+            }
+            _ => {
+                PyErr::new::<RuntimeError, _>(format!("{}", err.0))
+            }
+        }
+    }
+}
+
+
 #[derive(Copy, Clone, PartialOrd, PartialEq)]
 pub enum OutputFormat {
     JSON,
@@ -23,8 +39,7 @@ pub struct PyEvtxParser {
 impl PyEvtxParser {
     #[new]
     fn new(obj: &PyRawObject, file: String) -> PyResult<()> {
-        let inner = EvtxParser::from_path(file)
-            .map_err(evtx_err_to_pyerr)?;
+        let inner = EvtxParser::from_path(file).map_err(PyEvtxError)?;
 
         obj.init({
             PyEvtxParser {
@@ -62,17 +77,6 @@ impl PyEvtxParser {
     }
 }
 
-fn evtx_err_to_pyerr(e: evtx::err::Error) -> PyErr {
-    match e {
-        evtx::err::Error::IO { source, backtrace: _ } => {
-            source.into()
-        }
-        _ => {
-            PyErr::new::<RuntimeError, _>(format!("{}", e))
-        }
-    }
-}
-
 fn record_to_pydict(gil: Python, record: SerializedEvtxRecord) -> PyResult<&PyDict> {
     let pyrecord = PyDict::new(gil);
 
@@ -88,7 +92,7 @@ fn record_to_pyobject(r: Result<SerializedEvtxRecord, evtx::err::Error>, py: Pyt
             Ok(dict) => Ok(dict.to_object(py)),
             Err(e) => Ok(e.to_object(py)),
         },
-        Err(e) => Err(evtx_err_to_pyerr(e)),
+        Err(e) => Err(PyEvtxError(e).into()),
     }
 }
 
@@ -117,14 +121,14 @@ impl PyRecordsIterator {
                 None => return Ok(None),
                 Some(chunk_result) => match chunk_result {
                     Err(e) => {
-                        return Err(evtx_err_to_pyerr(e));
+                        return Err(PyEvtxError(e).into());
                     }
                     Ok(mut chunk) => {
                         let parsed_chunk = chunk.parse(&self.settings);
 
                         match parsed_chunk {
                             Err(e) => {
-                                return Err(evtx_err_to_pyerr(e));
+                                return Err(PyEvtxError(e).into());
                             }
                             Ok(mut chunk) => {
                                 self.records = match self.output_format {
