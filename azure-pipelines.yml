@@ -11,11 +11,30 @@ jobs:
     vmImage: 'ubuntu-16.04'
 
   steps:
-  - script: docker run -v $(Build.SourcesDirectory)/io konstin2/pyo3-pack build
-  - script: |
-            docker run -v $(Build.SourcesDirectory)/io konstin2/pyo3-pack publish -u omerba -p $(pypi.password)
-    displayName: "Upload to PyPi"
-    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.6'
+        architecture: 'x64'
+  
+    - script: |
+        python -m pip install --upgrade pip setuptools wheel
+      displayName: 'Install pyo3-pack'
+
+    - script: docker run -v $(Build.SourcesDirectory)/io konstin2/pyo3-pack build
+    
+    - script: |
+        pip install $(Build.SourcesDirectory)/wheels/evtx-*-cp36-*.whl
+      displayName: 'Install new wheel'
+
+    - script: |
+        pip install pytest pytest-azurepipelines
+        pytest
+      displayName: 'pytest'
+    
+    - script: |
+              docker run -v $(Build.SourcesDirectory)/io konstin2/pyo3-pack publish -u omerba -p $(pypi.password)
+      displayName: "Upload to PyPi"
+      condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
 
 
 - job:
@@ -60,7 +79,7 @@ jobs:
       displayName: 'PyO3-pack build'
 
     - script: |
-        pip install $(Build.BinariesDirectory)/evtx-*-cp36-cp36m-*.whl
+        pip install $(Build.BinariesDirectory)/evtx-*-cp36-*.whl
       displayName: 'Install new wheel'
 
     - script: |
@@ -117,7 +136,7 @@ jobs:
       displayName: 'PyO3-pack build'
 
     - powershell: |
-        pip install $(Build.BinariesDirectory)/$(Get-ChildItem $(Build.BinariesDirectory)/evtx-*-cp36-cp36m-win_amd64.whl | Select -exp Name)
+        pip install $(Build.BinariesDirectory)/$(Get-ChildItem $(Build.BinariesDirectory)/evtx-*-cp36-*.whl | Select -exp Name)
       displayName: 'Install new wheel'
 
     - script: |
