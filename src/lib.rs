@@ -77,8 +77,8 @@ impl PyEvtxParser {
     }
 }
 
-fn record_to_pydict(gil: Python, record: SerializedEvtxRecord) -> PyResult<&PyDict> {
-    let pyrecord = PyDict::new(gil);
+fn record_to_pydict(record: SerializedEvtxRecord, py: Python) -> PyResult<&PyDict> {
+    let pyrecord = PyDict::new(py);
 
     pyrecord.set_item("event_record_id", record.event_record_id)?;
     pyrecord.set_item("timestamp", format!("{}", record.timestamp))?;
@@ -88,7 +88,7 @@ fn record_to_pydict(gil: Python, record: SerializedEvtxRecord) -> PyResult<&PyDi
 
 fn record_to_pyobject(r: Result<SerializedEvtxRecord, evtx::err::Error>, py: Python) -> PyResult<PyObject> {
     match r {
-        Ok(r) => match record_to_pydict(py, r) {
+        Ok(r) => match record_to_pydict( r, py) {
             Ok(dict) => Ok(dict.to_object(py)),
             Err(e) => Ok(e.to_object(py)),
         },
