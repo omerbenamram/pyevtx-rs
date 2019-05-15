@@ -20,7 +20,10 @@ Windows users can still install the library from sources with a working recent n
 
 ## Usage
 
-The API surface is currently fairly limited (only yields events as XML documents), but is planned to be expanded in the future.
+The API surface is currently fairly limited (only yields events as XML/JSON documents), but is planned to be expanded in the future.
+
+
+This will print each record as an XML string.
 
 ```python
 from evtx import PyEvtxParser
@@ -28,11 +31,25 @@ from evtx import PyEvtxParser
 
 def main():
     parser = PyEvtxParser("./samples/Security_short_selected.evtx")
-    for record in parser:
+    for record in parser.records():
         print(f'Event Record ID: {record["event_record_id"]}')
         print(f'Event Timestamp: {record["timestamp"]}')
         print(record['data'])
         print(f'------------------------------------------')
 ```
 
-This will print each record as an XML string.
+
+And this will print each record as a JSON string.
+
+```python
+from evtx.parser import PyEvtxParser
+
+
+def main():
+    parser = PyEvtxParser("./samples/Security_short_selected.evtx")
+    for record in parser.records_json():
+        print(f'Event Record ID: {record["event_record_id"]}')
+        print(f'Event Timestamp: {record["timestamp"]}')
+        print(record['data'])
+        print(f'------------------------------------------')
+```
