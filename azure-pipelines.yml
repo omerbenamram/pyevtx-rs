@@ -10,13 +10,8 @@ jobs:
   pool:
     vmImage: 'ubuntu-16.04'
 
-  container: 
-    image: konstin2/pyo3-pack
-    volumes:
-      - $(Build.SourcesDirectory)/io
-
   steps:
-  - script: /root/.cargo/bin/pyo3-pack build
+  - script: docker run -v $(Build.SourcesDirectory)/io konstin2/pyo3-pack build
 
 - job:
   displayName: macOS-10.13
@@ -60,7 +55,7 @@ jobs:
       displayName: 'PyO3-pack build'
 
     - script: |
-        pip install $(Build.BinariesDirectory)/evtx-$(build.my_tag)-cp36-cp36m-macosx_10_9_x86_64.whl
+        pip install $(Build.BinariesDirectory)/evtx-*-cp36-cp36m-*.whl
       displayName: 'Install new wheel'
 
     - script: |
@@ -111,8 +106,8 @@ jobs:
         pyo3-pack build -o $(Build.BinariesDirectory)
       displayName: 'PyO3-pack build'
 
-    - script: |
-        pip install $(Build.BinariesDirectory)/evtx-$(build.my_tag)-cp36-cp36m-win_amd64.whl
+    - powershell: |
+        pip install $(Build.BinariesDirectory)/$(Get-ChildItem $(Build.BinariesDirectory)/evtx-*-cp36-cp36m-win_amd64.whl | Select -exp Name)
       displayName: 'Install new wheel'
 
     - script: |
