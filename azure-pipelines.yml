@@ -10,14 +10,10 @@ jobs:
   pool:
     vmImage: 'ubuntu-16.04'
 
-  resources:
-  containers:
-    - container: pyo3-pack
-      image: konstin2/pyo3-pack
-      volumes:
-       - $(Build.SourcesDirectory)/io
-
-  container: pyo3-pack
+  container: 
+    image: konstin2/pyo3-pack
+    volumes:
+      - $(Build.SourcesDirectory)/io
 
   steps:
   - script: build
