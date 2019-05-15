@@ -26,7 +26,7 @@ The API surface is currently fairly limited (only yields events as XML/JSON docu
 This will print each record as an XML string.
 
 ```python
-from evtx.parser import PyEvtxParser
+from evtx import PyEvtxParser
 
 
 def main():
