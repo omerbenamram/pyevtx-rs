@@ -12,6 +12,11 @@ jobs:
 
   steps:
   - script: docker run -v $(Build.SourcesDirectory)/io konstin2/pyo3-pack build
+  - script: |
+            docker run -v $(Build.SourcesDirectory)/io konstin2/pyo3-pack publish -u omerba -p $(pypi.password)
+    displayName: "Upload to PyPi"
+    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
+
 
 - job:
   displayName: macOS-10.13
@@ -62,6 +67,11 @@ jobs:
         pip install pytest pytest-azurepipelines
         pytest
       displayName: 'pytest'
+    
+    - script: |
+        pyo3-pack publish -u omerba -p $(pypi.password)
+      displayName: "Upload to PyPi"
+      condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
 
 
 - job: 
@@ -114,3 +124,8 @@ jobs:
         pip install pytest pytest-azurepipelines
         pytest
       displayName: 'pytest'
+    
+    - script: |
+        pyo3-pack publish -u omerba -p $(pypi.password)
+      displayName: "Upload to PyPi"
+      condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
