@@ -1,7 +1,9 @@
 #![allow(clippy::new_ret_no_self)]
 
-use evtx::{EvtxParser, SerializedEvtxRecord, JsonOutput, IntoIterChunks, ParserSettings, XmlOutput};
-use pyo3::exceptions::{RuntimeError, NotImplementedError};
+use evtx::{
+    EvtxParser, IntoIterChunks, JsonOutput, ParserSettings, SerializedEvtxRecord, XmlOutput,
+};
+use pyo3::exceptions::{NotImplementedError, RuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::PyIterProtocol;
@@ -13,16 +15,14 @@ struct PyEvtxError(evtx::err::Error);
 impl From<PyEvtxError> for PyErr {
     fn from(err: PyEvtxError) -> Self {
         match err.0 {
-            evtx::err::Error::IO { source, backtrace: _ } => {
-                source.into()
-            }
-            _ => {
-                PyErr::new::<RuntimeError, _>(format!("{}", err.0))
-            }
+            evtx::err::Error::IO {
+                source,
+                backtrace: _,
+            } => source.into(),
+            _ => PyErr::new::<RuntimeError, _>(format!("{}", err.0)),
         }
     }
 }
-
 
 #[derive(Copy, Clone, PartialOrd, PartialEq)]
 pub enum OutputFormat {
@@ -32,7 +32,7 @@ pub enum OutputFormat {
 
 #[pyclass]
 pub struct PyEvtxParser {
-    inner: Option<EvtxParser<File>>
+    inner: Option<EvtxParser<File>>,
 }
 
 #[pymethods]
@@ -41,19 +41,23 @@ impl PyEvtxParser {
     fn new(obj: &PyRawObject, file: String) -> PyResult<()> {
         let inner = EvtxParser::from_path(file).map_err(PyEvtxError)?;
 
-        obj.init({
-            PyEvtxParser {
-                inner: Some(inner)
-            }
-        });
+        obj.init({ PyEvtxParser { inner: Some(inner) } });
 
         Ok(())
     }
 
+    /// records(self, /)
+    /// --
+    ///
+    /// Returns an iterator that yields XML records.
     fn records(&mut self) -> PyResult<PyRecordsIterator> {
         self.records_iterator(OutputFormat::XML)
     }
 
+    /// records_json(self, /)
+    /// --
+    ///
+    /// Returns an iterator that yields JSON records.
     fn records_json(&mut self) -> PyResult<PyRecordsIterator> {
         self.records_iterator(OutputFormat::JSON)
     }
@@ -64,7 +68,9 @@ impl PyEvtxParser {
         let inner = match self.inner.take() {
             Some(inner) => inner,
             None => {
-                return Err(PyErr::new::<RuntimeError, _>("PyEvtxParser can only be used once"));
+                return Err(PyErr::new::<RuntimeError, _>(
+                    "PyEvtxParser can only be used once",
+                ));
             }
         };
 
@@ -86,16 +92,18 @@ fn record_to_pydict(record: SerializedEvtxRecord, py: Python) -> PyResult<&PyDic
     Ok(pyrecord)
 }
 
-fn record_to_pyobject(r: Result<SerializedEvtxRecord, evtx::err::Error>, py: Python) -> PyResult<PyObject> {
+fn record_to_pyobject(
+    r: Result<SerializedEvtxRecord, evtx::err::Error>,
+    py: Python,
+) -> PyResult<PyObject> {
     match r {
-        Ok(r) => match record_to_pydict( r, py) {
+        Ok(r) => match record_to_pydict(r, py) {
             Ok(dict) => Ok(dict.to_object(py)),
             Err(e) => Ok(e.to_object(py)),
         },
         Err(e) => Err(PyEvtxError(e).into()),
     }
 }
-
 
 #[pyclass]
 pub struct PyRecordsIterator {
@@ -132,16 +140,16 @@ impl PyRecordsIterator {
                             }
                             Ok(mut chunk) => {
                                 self.records = match self.output_format {
-                                    OutputFormat::XML => {
-                                        Some(chunk
+                                    OutputFormat::XML => Some(
+                                        chunk
                                             .iter_serialized_records::<XmlOutput<Vec<u8>>>()
-                                            .collect())
-                                    }
-                                    OutputFormat::JSON => {
-                                        Some(chunk
+                                            .collect(),
+                                    ),
+                                    OutputFormat::JSON => Some(
+                                        chunk
                                             .iter_serialized_records::<JsonOutput<Vec<u8>>>()
-                                            .collect())
-                                    }
+                                            .collect(),
+                                    ),
                                 };
                             }
                         }
@@ -151,7 +159,6 @@ impl PyRecordsIterator {
         }
     }
 }
-
 
 #[pyproto]
 impl PyIterProtocol for PyEvtxParser {
@@ -163,7 +170,6 @@ impl PyIterProtocol for PyEvtxParser {
     }
 }
 
-
 #[pyproto]
 impl PyIterProtocol for PyRecordsIterator {
     fn __iter__(slf: PyRefMut<Self>) -> PyResult<Py<PyRecordsIterator>> {
@@ -174,6 +180,36 @@ impl PyIterProtocol for PyRecordsIterator {
     }
 }
 
+// Don't use double quotes ("") inside this docstring, this will crash pyo3.
+/// Parses an evtx file.
+///
+/// This will print each record as an XML string.
+///
+///```python
+/// from evtx import PyEvtxParser
+///
+/// def main():
+///    parser = PyEvtxParser('./samples/Security_short_selected.evtx')
+///    for record in parser.records():
+///        print(f'Event Record ID: {record['event_record_id']}')
+///        print(f'Event Timestamp: {record['timestamp']}')
+///        print(record['data'])
+///        print('------------------------------------------')
+///```
+///
+/// And this will print each record as a JSON string.
+///
+/// ```python
+/// from evtx import PyEvtxParser
+///
+/// def main():
+///    parser = PyEvtxParser('./samples/Security_short_selected.evtx')
+///    for record in parser.records_json():
+///        print(f'Event Record ID: {record['event_record_id']}')
+///        print(f'Event Timestamp: {record['timestamp']}')
+///        print(record['data'])
+///        print(f'------------------------------------------')
+///```
 #[pymodule]
 fn evtx(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyEvtxParser>()?;
