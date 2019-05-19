@@ -1,4 +1,5 @@
 import pytest
+import io
 
 from pathlib import Path
 from evtx import PyEvtxParser
@@ -61,3 +62,17 @@ def test_it_returns_error_when_using_next_on_parser(small_sample):
 
     with pytest.raises(NotImplementedError):
         next(parser)
+
+
+def test_it_works_on_file_object(small_sample):
+    obj = open(small_sample, "rb")
+    r = obj.read()
+
+    parser = PyEvtxParser(io.BytesIO(r))
+    records = list(parser.records())
+    assert len(records) == 7
+
+    assert records[0]['event_record_id'] == 7
+    assert records[0]['timestamp'].endswith('UTC')
+    assert '<EventID>4673</EventID>' in records[0]['data']
+

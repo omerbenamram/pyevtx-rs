@@ -10,3 +10,5 @@ crate-type = ["cdylib"]
 [dependencies]
 evtx = "0.3.0"
 pyo3 = {version = "0.6.0", features = ["extension-module"]}
+pyo3-file = {path="/Users/omerba/Workspace/pyo3-file"}
+env-logger = "0.6.1"

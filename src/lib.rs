@@ -1,14 +1,28 @@
 #![allow(clippy::new_ret_no_self)]
 
-use evtx::{
-    EvtxParser, IntoIterChunks, JsonOutput, ParserSettings, SerializedEvtxRecord, XmlOutput,
-};
-use pyo3::exceptions::{NotImplementedError, RuntimeError};
-use pyo3::prelude::*;
-use pyo3::types::PyDict;
-use pyo3::PyIterProtocol;
+use evtx::{EvtxParser, IntoIterChunks, JsonOutput, ParserSettings, SerializedEvtxRecord, XmlOutput, ensure_env_logger_initialized};
 
+use pyo3::exceptions::{NotImplementedError, RuntimeError, TypeError};
+use pyo3::prelude::*;
+use pyo3::types::{IntoPyDict, PyString};
+use pyo3::types::{PyAny, PyBytes, PyDict};
+use pyo3::AsPyPointer;
+use pyo3::PyIterProtocol;
+use pyo3_file::PyFileLikeObject;
+
+use core::borrow::{Borrow, BorrowMut};
 use std::fs::File;
+use std::io;
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::path::PathBuf;
+
+pub trait ReadSeek: Read + Seek {
+    fn tell(&mut self) -> io::Result<u64> {
+        self.seek(SeekFrom::Current(0))
+    }
+}
+
+impl<T: Read + Seek> ReadSeek for T {}
 
 struct PyEvtxError(evtx::err::Error);
 
@@ -32,14 +46,61 @@ pub enum OutputFormat {
 
 #[pyclass]
 pub struct PyEvtxParser {
-    inner: Option<EvtxParser<File>>,
+    inner: Option<EvtxParser<Box<dyn ReadSeek>>>,
+}
+
+#[derive(Debug)]
+enum FileOrFileLike {
+    File(String),
+    FileLike(PyFileLikeObject),
+}
+
+impl FileOrFileLike {
+    pub fn from_pyobject(path_or_file_like: PyObject) -> PyResult<FileOrFileLike> {
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+
+        if path_or_file_like.cast_as::<PyString>(py).is_ok() {
+            let string_ref = path_or_file_like.cast_as::<PyString>(py).unwrap();
+            Ok(FileOrFileLike::File(
+                string_ref.to_string_lossy().to_string(),
+            ))
+        }
+        //hasattr read
+        else if path_or_file_like
+            .call_method(py, "read", (0,), None)
+            .is_ok()
+        {
+            Ok(FileOrFileLike::FileLike(PyFileLikeObject::new(
+                path_or_file_like,
+            )))
+        } else {
+            return Err(PyErr::new::<TypeError, _>(
+                "Object is not a string nor file-like",
+            ));
+        }
+    }
 }
 
 #[pymethods]
 impl PyEvtxParser {
     #[new]
-    fn new(obj: &PyRawObject, file: String) -> PyResult<()> {
-        let inner = EvtxParser::from_path(file).map_err(PyEvtxError)?;
+    fn new(obj: &PyRawObject, path_or_file_like: PyObject) -> PyResult<()> {
+        let file_or_file_like = FileOrFileLike::from_pyobject(path_or_file_like)?;
+
+        let inner = match file_or_file_like {
+            FileOrFileLike::File(s) => {
+                dbg!(&s);
+                let f = File::open(s)?;
+                let b = Box::new(f) as Box<dyn ReadSeek>;
+                EvtxParser::from_read_seek(b).map_err(PyEvtxError)?
+            }
+            FileOrFileLike::FileLike(f) => {
+                dbg!(&f);
+                let b = Box::new(f) as Box<dyn ReadSeek>;
+                EvtxParser::from_read_seek(b).map_err(PyEvtxError)?
+            }
+        };
 
         obj.init({ PyEvtxParser { inner: Some(inner) } });
 
@@ -107,7 +168,7 @@ fn record_to_pyobject(
 
 #[pyclass]
 pub struct PyRecordsIterator {
-    inner: IntoIterChunks<File>,
+    inner: IntoIterChunks<Box<dyn ReadSeek>>,
     records: Option<Vec<Result<SerializedEvtxRecord, evtx::err::Error>>>,
     settings: ParserSettings,
     output_format: OutputFormat,
