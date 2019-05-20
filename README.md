@@ -51,3 +51,21 @@ def main():
         print(record['data'])
         print(f'------------------------------------------')
 ```
+
+File-like objects are also supported.
+
+```python
+from evtx.parser import PyEvtxParser
+
+
+def main():
+    a = open("./samples/Security_short_selected.evtx", 'rb')
+    
+    # io.BytesIO is also supported.
+    parser = PyEvtxParser(a)
+    for record in parser.records_json():
+        print(f'Event Record ID: {record["event_record_id"]}')
+        print(f'Event Timestamp: {record["timestamp"]}')
+        print(record['data'])
+        print(f'------------------------------------------')
+```

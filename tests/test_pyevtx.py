@@ -53,7 +53,7 @@ def test_it_returns_error_when_iterating_twice(small_sample):
 
 
 def test_it_returns_error_on_non_existing_path():
-    with pytest.raises(RuntimeError):
+    with pytest.raises(FileNotFoundError):
         parser = PyEvtxParser("non_existing")
 
 
@@ -64,9 +64,9 @@ def test_it_returns_error_when_using_next_on_parser(small_sample):
         next(parser)
 
 
-def test_it_works_on_file_object(small_sample):
-    obj = open(small_sample, "rb")
-    r = obj.read()
+def test_it_works_on_io_object(small_sample):
+    with open(small_sample, "rb") as o:
+        r = o.read()
 
     parser = PyEvtxParser(io.BytesIO(r))
     records = list(parser.records())
@@ -75,4 +75,40 @@ def test_it_works_on_file_object(small_sample):
     assert records[0]['event_record_id'] == 7
     assert records[0]['timestamp'].endswith('UTC')
     assert '<EventID>4673</EventID>' in records[0]['data']
+
+
+def test_it_works_on_file_backed_object(small_sample):
+    with open(small_sample, "rb") as o:
+        parser = PyEvtxParser(o)
+
+        records = list(parser.records())
+
+    assert len(records) == 7
+
+    assert records[0]['event_record_id'] == 7
+    assert records[0]['timestamp'].endswith('UTC')
+    assert '<EventID>4673</EventID>' in records[0]['data']
+
+
+def test_it_fails_on_file_opened_as_text(small_sample):
+    with pytest.raises(OSError) as e:
+        with open(small_sample, "rt") as o:
+            parser = PyEvtxParser(o)
+
+    assert "utf-8" in e.value.args[1]
+
+
+def test_it_fails_nicely_on_close_files(small_sample):
+    with open(small_sample, "rb") as o:
+        parser = PyEvtxParser(o)
+
+    with pytest.raises(OSError) as e:
+        records = list(parser.records())
+
+    assert "closed file" in e.value.args[1]
+
+
+def test_it_fails_on_non_file_object():
+    with pytest.raises(TypeError):
+        parser = PyEvtxParser(3)
 

@@ -1,6 +1,6 @@
 [package]
 name = "evtx"
-version = "0.3.0"
+version = "0.3.2"
 authors = ["Omer Ben-Amram <omerbenamram@gmail.com>"]
 edition = "2018"
 
@@ -8,7 +8,6 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-evtx = "0.3.0"
+evtx = "0.3.2"
 pyo3 = {version = "0.6.0", features = ["extension-module"]}
-pyo3-file = {path="/Users/omerba/Workspace/pyo3-file"}
-env-logger = "0.6.1"
+pyo3-file = "0.1.0"

@@ -1,6 +1,7 @@
 #![allow(clippy::new_ret_no_self)]
-
-use evtx::{EvtxParser, IntoIterChunks, JsonOutput, ParserSettings, SerializedEvtxRecord, XmlOutput, ensure_env_logger_initialized};
+use evtx::{
+    EvtxParser, IntoIterChunks, JsonOutput, ParserSettings, SerializedEvtxRecord, XmlOutput,
+};
 
 use pyo3::exceptions::{NotImplementedError, RuntimeError, TypeError};
 use pyo3::prelude::*;
@@ -10,7 +11,6 @@ use pyo3::AsPyPointer;
 use pyo3::PyIterProtocol;
 use pyo3_file::PyFileLikeObject;
 
-use core::borrow::{Borrow, BorrowMut};
 use std::fs::File;
 use std::io;
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -44,11 +44,6 @@ pub enum OutputFormat {
     XML,
 }
 
-#[pyclass]
-pub struct PyEvtxParser {
-    inner: Option<EvtxParser<Box<dyn ReadSeek>>>,
-}
-
 #[derive(Debug)]
 enum FileOrFileLike {
     File(String),
@@ -60,26 +55,29 @@ impl FileOrFileLike {
         let gil = Python::acquire_gil();
         let py = gil.python();
 
-        if path_or_file_like.cast_as::<PyString>(py).is_ok() {
-            let string_ref = path_or_file_like.cast_as::<PyString>(py).unwrap();
-            Ok(FileOrFileLike::File(
+        // is a path
+        if let Ok(string_ref) = path_or_file_like.cast_as::<PyString>(py) {
+            return Ok(FileOrFileLike::File(
                 string_ref.to_string_lossy().to_string(),
-            ))
-        }
-        //hasattr read
-        else if path_or_file_like
-            .call_method(py, "read", (0,), None)
-            .is_ok()
-        {
-            Ok(FileOrFileLike::FileLike(PyFileLikeObject::new(
-                path_or_file_like,
-            )))
-        } else {
-            return Err(PyErr::new::<TypeError, _>(
-                "Object is not a string nor file-like",
             ));
         }
+
+        // is a file-like
+        match PyFileLikeObject::new(path_or_file_like) {
+            Ok(f) => Ok(FileOrFileLike::FileLike(f)),
+            Err(e) => Err(e),
+        }
     }
+}
+
+#[pyclass]
+/// PyEvtxParser(self, path_or_file_like, /)
+/// --
+///
+/// Returns an instance of the parser.
+/// Works on both a path (string), or a file-like object.
+pub struct PyEvtxParser {
+    inner: Option<EvtxParser<Box<dyn ReadSeek>>>,
 }
 
 #[pymethods]
@@ -90,15 +88,13 @@ impl PyEvtxParser {
 
         let inner = match file_or_file_like {
             FileOrFileLike::File(s) => {
-                dbg!(&s);
-                let f = File::open(s)?;
-                let b = Box::new(f) as Box<dyn ReadSeek>;
-                EvtxParser::from_read_seek(b).map_err(PyEvtxError)?
+                let file = File::open(s)?;
+                let boxed_file = Box::new(file) as Box<dyn ReadSeek>;
+                EvtxParser::from_read_seek(boxed_file).map_err(PyEvtxError)?
             }
             FileOrFileLike::FileLike(f) => {
-                dbg!(&f);
-                let b = Box::new(f) as Box<dyn ReadSeek>;
-                EvtxParser::from_read_seek(b).map_err(PyEvtxError)?
+                let boxed_file_like = Box::new(f) as Box<dyn ReadSeek>;
+                EvtxParser::from_read_seek(boxed_file_like).map_err(PyEvtxError)?
             }
         };
 
@@ -181,6 +177,7 @@ impl PyRecordsIterator {
 
         loop {
             if let Some(record) = self.records.as_mut().and_then(Vec::pop) {
+                dbg!(&record);
                 return record_to_pyobject(record, py).map(Some);
             }
 
