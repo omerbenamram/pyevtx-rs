@@ -5,8 +5,8 @@ use evtx::{
 
 use pyo3::exceptions::{NotImplementedError, RuntimeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyString};
-use pyo3::types::{PyDict};
+use pyo3::types::PyDict;
+use pyo3::types::PyString;
 
 use pyo3::PyIterProtocol;
 use pyo3_file::PyFileLikeObject;
@@ -14,7 +14,6 @@ use pyo3_file::PyFileLikeObject;
 use std::fs::File;
 use std::io;
 use std::io::{Read, Seek, SeekFrom};
-
 
 pub trait ReadSeek: Read + Seek {
     fn tell(&mut self) -> io::Result<u64> {
@@ -62,8 +61,8 @@ impl FileOrFileLike {
             ));
         }
 
-        // is a file-like
-        match PyFileLikeObject::new(path_or_file_like) {
+        // We only need read + seek
+        match PyFileLikeObject::with_requirements(path_or_file_like, true, false, true) {
             Ok(f) => Ok(FileOrFileLike::FileLike(f)),
             Err(e) => Err(e),
         }
@@ -177,7 +176,6 @@ impl PyRecordsIterator {
 
         loop {
             if let Some(record) = self.records.as_mut().and_then(Vec::pop) {
-                dbg!(&record);
                 return record_to_pyobject(record, py).map(Some);
             }
 
