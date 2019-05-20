@@ -32,7 +32,7 @@ jobs:
       displayName: 'pytest'
     
     - script: |
-              docker run -v $(Build.SourcesDirectory)/io konstin2/pyo3-pack publish -u omerba -p $(pypi.password)
+        docker run -v $(Build.SourcesDirectory):/io konstin2/pyo3-pack publish -u omerba -p $(pypi.password)
       displayName: "Upload to PyPi"
       condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
 
