@@ -85,19 +85,21 @@ impl PyEvtxParser {
     fn new(obj: &PyRawObject, path_or_file_like: PyObject) -> PyResult<()> {
         let file_or_file_like = FileOrFileLike::from_pyobject(path_or_file_like)?;
 
-        let inner = match file_or_file_like {
+        let boxed_read_seek = match file_or_file_like {
             FileOrFileLike::File(s) => {
                 let file = File::open(s)?;
-                let boxed_file = Box::new(file) as Box<dyn ReadSeek>;
-                EvtxParser::from_read_seek(boxed_file).map_err(PyEvtxError)?
+                Box::new(file) as Box<dyn ReadSeek>
             }
-            FileOrFileLike::FileLike(f) => {
-                let boxed_file_like = Box::new(f) as Box<dyn ReadSeek>;
-                EvtxParser::from_read_seek(boxed_file_like).map_err(PyEvtxError)?
-            }
+            FileOrFileLike::FileLike(f) => Box::new(f) as Box<dyn ReadSeek>,
         };
 
-        obj.init({ PyEvtxParser { inner: Some(inner) } });
+        let parser = EvtxParser::from_read_seek(boxed_read_seek).map_err(PyEvtxError)?;
+
+        obj.init({
+            PyEvtxParser {
+                inner: Some(parser),
+            }
+        });
 
         Ok(())
     }
