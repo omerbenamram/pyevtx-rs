@@ -3,18 +3,18 @@ use evtx::{
     EvtxParser, IntoIterChunks, JsonOutput, ParserSettings, SerializedEvtxRecord, XmlOutput,
 };
 
-use pyo3::exceptions::{NotImplementedError, RuntimeError, TypeError};
+use pyo3::exceptions::{NotImplementedError, RuntimeError};
 use pyo3::prelude::*;
-use pyo3::types::{IntoPyDict, PyString};
-use pyo3::types::{PyAny, PyBytes, PyDict};
-use pyo3::AsPyPointer;
+use pyo3::types::{PyString};
+use pyo3::types::{PyDict};
+
 use pyo3::PyIterProtocol;
 use pyo3_file::PyFileLikeObject;
 
 use std::fs::File;
 use std::io;
-use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::PathBuf;
+use std::io::{Read, Seek, SeekFrom};
+
 
 pub trait ReadSeek: Read + Seek {
     fn tell(&mut self) -> io::Result<u64> {
