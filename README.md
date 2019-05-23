@@ -1,4 +1,4 @@
-[![Build Status](https://dev.azure.com/benamram/evtx/_apis/build/status/omerbenamram.pyevtx-rs?branchName=master)](https://dev.azure.com/benamram/evtx/_build/latest?definitionId=2&branchName=master)
+[![Build Status](https://dev.azure.com/benamram/dfir/_apis/build/status/omerbenamram.pyevtx-rs?branchName=master)](https://dev.azure.com/benamram/evtx/_build/latest?definitionId=2&branchName=master)
 
 # pyevtx-rs
 
