@@ -363,7 +363,7 @@ dependencies = [
 
 [[package]]
 name = "evtx"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "encoding 0.2.33 (registry+https://github.com/rust-lang/crates.io-index)",
  "evtx 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
