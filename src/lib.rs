@@ -81,7 +81,12 @@ impl FileOrFileLike {
 ///
 /// Args:
 ///     `path_or_file_like`: a path (string), or a file-like object.
-///     `number_of_threads` (int, optional): limit the number of worker threads used by rust.
+///
+///     `number_of_threads` (int, optional):
+///            limit the number of worker threads used by rust.
+///            `0` (the default) will let the library decide how many threads to use
+///            based on the number of cores available.
+///
 ///     `ansi_codec`(str, optional) to control encoding of ansi strings inside the evtx file.
 ///
 ///                  Possible values:
