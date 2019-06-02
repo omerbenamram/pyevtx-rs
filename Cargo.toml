@@ -8,6 +8,7 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-evtx = "0.3.2"
+evtx = "0.4.0"
+encoding = "0.2.33"
 pyo3 = {version = "0.6.0", features = ["extension-module"]}
 pyo3-file = "0.2.0"

@@ -112,3 +112,30 @@ def test_it_fails_on_non_file_object():
     with pytest.raises(TypeError):
         parser = PyEvtxParser(3)
 
+
+def test_it_supports_various_ascii_codecs(small_sample):
+    with open(small_sample, "rb") as o:
+        parser = PyEvtxParser(o, ansi_codec="ascii")
+
+        records = list(parser.records())
+
+        assert len(records) == 7
+
+        assert records[0]['event_record_id'] == 7
+        assert records[0]['timestamp'].endswith('UTC')
+        assert '<EventID>4673</EventID>' in records[0]['data']
+
+
+def test_it_supports_various_num_threads(small_sample):
+    with open(small_sample, "rb") as o:
+        parser = PyEvtxParser(o, number_of_threads=1)
+
+        records = list(parser.records())
+
+        assert len(records) == 7
+
+        assert records[0]['event_record_id'] == 7
+        assert records[0]['timestamp'].endswith('UTC')
+        assert '<EventID>4673</EventID>' in records[0]['data']
+
+
