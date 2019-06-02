@@ -163,7 +163,13 @@ impl PyEvtxParser {
     /// records(self, /)
     /// --
     ///
-    /// Returns an iterator that yields XML records.
+    /// Returns an iterator that yields either an XML record, or a `RuntimeError` object.
+    ///
+    /// Note - Iterating over records can raise a `RuntimeError` if the parser encounters an invalid record.
+    ///        If using a regular for-loop, this could abruptly terminate the iteration.
+    ///
+    ///        It is recommended to wrap this iterator with a logic that will continue iteration
+    ///        in case an exception object is returned.
     fn records(&mut self) -> PyResult<PyRecordsIterator> {
         self.records_iterator(OutputFormat::XML)
     }
@@ -171,7 +177,13 @@ impl PyEvtxParser {
     /// records_json(self, /)
     /// --
     ///
-    /// Returns an iterator that yields JSON records.
+    /// Returns an iterator that yields either a JSON record, or a `RuntimeError` object.
+    ///
+    /// Note - Iterating over records can raise a `RuntimeError` if the parser encounters an invalid record.
+    ///        If using a regular for-loop, this could abruptly terminate the iteration.
+    ///
+    ///        It is recommended to wrap this iterator with a logic that will continue iteration
+    ///        in case an exception object is returned.
     fn records_json(&mut self) -> PyResult<PyRecordsIterator> {
         self.records_iterator(OutputFormat::JSON)
     }
