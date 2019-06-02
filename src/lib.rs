@@ -1,9 +1,12 @@
 #![allow(clippy::new_ret_no_self)]
+#![deny(unused_must_use)]
+#![cfg_attr(not(debug_assertions), deny(clippy::dbg_macro))]
+
 use evtx::{
     EvtxParser, IntoIterChunks, JsonOutput, ParserSettings, SerializedEvtxRecord, XmlOutput,
 };
 
-use pyo3::exceptions::{NotImplementedError, RuntimeError};
+use pyo3::exceptions::{NotImplementedError, RuntimeError, ValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::types::PyString;
@@ -11,9 +14,10 @@ use pyo3::types::PyString;
 use pyo3::PyIterProtocol;
 use pyo3_file::PyFileLikeObject;
 
+use encoding::all::encodings;
 use std::fs::File;
-use std::io;
 use std::io::{Read, Seek, SeekFrom};
+use std::{io, mem};
 
 pub trait ReadSeek: Read + Seek {
     fn tell(&mut self) -> io::Result<u64> {
@@ -70,11 +74,26 @@ impl FileOrFileLike {
 }
 
 #[pyclass]
-/// PyEvtxParser(self, path_or_file_like, /)
+/// PyEvtxParser(self, path_or_file_like, number_of_threads=0, ansi_codec='windows-1252', /)
 /// --
 ///
 /// Returns an instance of the parser.
-/// Works on both a path (string), or a file-like object.
+///
+/// Args:
+///     `path_or_file_like`: a path (string), or a file-like object.
+///     `number_of_threads` (int, optional): limit the number of worker threads used by rust.
+///     `ansi_codec`(str, optional) to control encoding of ansi strings inside the evtx file.
+///
+///                  Possible values:
+///                      ascii, ibm866, iso-8859-1, iso-8859-2, iso-8859-3, iso-8859-4,
+///                      iso-8859-5, iso-8859-6, iso-8859-7, iso-8859-8, iso-8859-10,
+///                      iso-8859-13, iso-8859-14, iso-8859-15, iso-8859-16,
+///                      koi8-r, koi8-u, mac-roman, windows-874, windows-1250, windows-1251,
+///                      windows-1252, windows-1253, windows-1254, windows-1255,
+///                      windows-1256, windows-1257, windows-1258, mac-cyrillic, utf-8,
+///                      windows-949, euc-jp, windows-31j, gbk, gb18030, hz, big5-2003,
+///                      pua-mapped-binary, iso-8859-8-i
+///
 pub struct PyEvtxParser {
     inner: Option<EvtxParser<Box<dyn ReadSeek>>>,
 }
@@ -82,8 +101,38 @@ pub struct PyEvtxParser {
 #[pymethods]
 impl PyEvtxParser {
     #[new]
-    fn new(obj: &PyRawObject, path_or_file_like: PyObject) -> PyResult<()> {
+    fn new(
+        obj: &PyRawObject,
+        path_or_file_like: PyObject,
+        number_of_threads: Option<usize>,
+        ansi_codec: Option<String>,
+    ) -> PyResult<()> {
         let file_or_file_like = FileOrFileLike::from_pyobject(path_or_file_like)?;
+
+        // Setup `ansi_codec`
+        let codec = if let Some(codec) = ansi_codec {
+            match encodings().iter().find(|c| c.name() == codec) {
+                Some(encoding) => *encoding,
+                None => {
+                    return Err(PyErr::new::<ValueError, _>(format!(
+                        "Unknown encoding `[{}]`, see help for possible values",
+                        codec
+                    )));
+                }
+            }
+        } else {
+            ParserSettings::default().get_ansi_codec()
+        };
+
+        // Setup `number_of_threads`
+        let n_threads = match number_of_threads {
+            Some(number) => number,
+            None => *ParserSettings::default().get_num_threads(),
+        };
+
+        let configuration = ParserSettings::new()
+            .ansi_codec(codec)
+            .num_threads(n_threads);
 
         let boxed_read_seek = match file_or_file_like {
             FileOrFileLike::File(s) => {
@@ -93,7 +142,9 @@ impl PyEvtxParser {
             FileOrFileLike::FileLike(f) => Box::new(f) as Box<dyn ReadSeek>,
         };
 
-        let parser = EvtxParser::from_read_seek(boxed_read_seek).map_err(PyEvtxError)?;
+        let parser = EvtxParser::from_read_seek(boxed_read_seek)
+            .map_err(PyEvtxError)?
+            .with_configuration(configuration);
 
         obj.init({
             PyEvtxParser {
