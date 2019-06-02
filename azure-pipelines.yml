@@ -132,7 +132,7 @@ jobs:
       displayName: 'Install pyo3-pack'
 
     - script: |
-        pyo3-pack build -o $(Build.BinariesDirectory)
+        pyo3-pack build -o $(Build.BinariesDirectory) --interpreter python
       displayName: 'PyO3-pack build'
 
     - powershell: |
