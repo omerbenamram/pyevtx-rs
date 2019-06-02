@@ -145,6 +145,6 @@ jobs:
       displayName: 'pytest'
     
     - script: |
-        pyo3-pack publish -u omerba -p $(pypi.password)
+        pyo3-pack publish -u omerba -p $(pypi.password) --interpreter python
       displayName: "Upload to PyPi"
       condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
