@@ -148,3 +148,13 @@ jobs:
         pyo3-pack publish -u omerba -p $(pypi.password) --interpreter python
       displayName: "Upload to PyPi"
       condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
+
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.7'
+        architecture: 'x64'
+
+    - script: |
+        pyo3-pack publish -u omerba -p $(pypi.password) --interpreter python
+      displayName: "Upload to PyPi"
+      condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
