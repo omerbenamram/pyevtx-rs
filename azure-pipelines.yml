@@ -18,10 +18,11 @@ jobs:
   
     - script: |
         python -m pip install --upgrade pip setuptools wheel
+      displayName: 'Install setuptools+wheel'
+
+    - script: docker run -v $(Build.SourcesDirectory):/io konstin2/pyo3-pack:master build
       displayName: 'Install maturin'
 
-    - script: docker run -v $(Build.SourcesDirectory):/io konstin2/pyo3-pack build
-    
     - script: |
         pip install $(Build.SourcesDirectory)/target/wheels/evtx-*-cp36-*.whl
       displayName: 'Install new wheel'
