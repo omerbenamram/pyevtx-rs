@@ -1,6 +1,6 @@
 [package]
 name = "evtx"
-version = "0.4.0"
+version = "0.5.1"
 authors = ["Omer Ben-Amram <omerbenamram@gmail.com>"]
 edition = "2018"
 
