@@ -349,12 +349,12 @@ dependencies = [
 
 [[package]]
 name = "evtx"
-version = "0.5.0"
+version = "0.4.0"
 dependencies = [
  "encoding 0.2.33 (registry+https://github.com/rust-lang/crates.io-index)",
  "evtx 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pyo3 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "pyo3-file 0.3.1-alpha.0",
+ "pyo3-file 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -665,7 +665,8 @@ dependencies = [
 
 [[package]]
 name = "pyo3-file"
-version = "0.3.1-alpha.0"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "pyo3 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "skeptic 0.13.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1349,6 +1350,7 @@ dependencies = [
 "checksum pulldown-cmark 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "eef52fac62d0ea7b9b4dc7da092aa64ea7ec3d90af6679422d3d7e0e14b6ee15"
 "checksum pyo3 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e00968c74d07a0d2f18ce7a7594b1baedb1dfe2c56b4f32a74c4ea7548f37468"
 "checksum pyo3-derive-backend 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e458cac2fb0ffe261e46b5a3c254daba5e1b0fdb6955dbf9cb7286be0053659a"
+"checksum pyo3-file 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "061033116912f1db13c11a013751694ad5c9c25d82014842cc6f0bc0d47ecde3"
 "checksum pyo3cls 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "cf4a59e5c95f7a355d3f471e9e97a72bdd9bd355686f2e069748773ffb4bbc42"
 "checksum quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "9274b940887ce9addde99c4eee6b5c44cc494b182b97e73dc8ffdcb3397fd3f0"
 "checksum quick-xml 0.16.1 (registry+https://github.com/rust-lang/crates.io-index)" = "1cd45021132c1cb5540995e93fcc2cf5a874ef84f9639168fb6819caa023d4be"
