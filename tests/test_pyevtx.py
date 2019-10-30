@@ -95,7 +95,7 @@ def test_it_fails_on_file_opened_as_text(small_sample):
         with open(small_sample, "rt") as o:
             parser = PyEvtxParser(o)
 
-    assert "decode byte" in e.value.args[1]
+    assert "decode byte" in e.value.args[0]
 
 
 def test_it_fails_nicely_on_close_files(small_sample):
@@ -105,7 +105,7 @@ def test_it_fails_nicely_on_close_files(small_sample):
     with pytest.raises(OSError) as e:
         records = list(parser.records())
 
-    assert "closed file" in e.value.args[1]
+    assert "closed file" in e.value.args[0]
 
 
 def test_it_fails_on_non_file_object():
