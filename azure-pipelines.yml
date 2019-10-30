@@ -20,7 +20,7 @@ jobs:
         python -m pip install --upgrade pip setuptools wheel
       displayName: 'Install maturin'
 
-    - script: docker run -v $(Build.SourcesDirectory):/io konstin2/maturin build
+    - script: docker run -v $(Build.SourcesDirectory):/io konstin2/pyo3-pack build
     
     - script: |
         pip install $(Build.SourcesDirectory)/target/wheels/evtx-*-cp36-*.whl
@@ -32,7 +32,7 @@ jobs:
       displayName: 'pytest'
     
     - script: |
-        docker run -v $(Build.SourcesDirectory):/io konstin2/maturin publish -u omerba -p $(pypi.password)
+        docker run -v $(Build.SourcesDirectory):/io konstin2/pyo3-pack publish -u omerba -p $(pypi.password)
       displayName: "Upload to PyPi"
       condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
 
