@@ -20,7 +20,7 @@ install_requires = ["setuptools-rust"]
 
 setup(
     name="evtx",
-    version="0.3.2",
+    version="0.5.0",
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Development Status :: 3 - Alpha",

@@ -18,9 +18,9 @@ jobs:
   
     - script: |
         python -m pip install --upgrade pip setuptools wheel
-      displayName: 'Install pyo3-pack'
+      displayName: 'Install maturin'
 
-    - script: docker run -v $(Build.SourcesDirectory):/io konstin2/pyo3-pack build
+    - script: docker run -v $(Build.SourcesDirectory):/io konstin2/maturin build
     
     - script: |
         pip install $(Build.SourcesDirectory)/target/wheels/evtx-*-cp36-*.whl
@@ -32,7 +32,7 @@ jobs:
       displayName: 'pytest'
     
     - script: |
-        docker run -v $(Build.SourcesDirectory):/io konstin2/pyo3-pack publish -u omerba -p $(pypi.password)
+        docker run -v $(Build.SourcesDirectory):/io konstin2/maturin publish -u omerba -p $(pypi.password)
       displayName: "Upload to PyPi"
       condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
 
@@ -62,7 +62,7 @@ jobs:
       displayName: "Create date variable"
 
     - bash: |
-        cargo install pyo3-pack
+        cargo install maturin
       displayName: "Install PyO3-pack"
 
     - task: UsePythonVersion@0
@@ -72,10 +72,10 @@ jobs:
   
     - script: |
         python -m pip install --upgrade pip setuptools wheel
-      displayName: 'Install pyo3-pack'
+      displayName: 'Install maturin'
 
     - script: |
-        pyo3-pack build -o $(Build.BinariesDirectory)
+        maturin build -o $(Build.BinariesDirectory)
       displayName: 'PyO3-pack build'
 
     - script: |
@@ -88,7 +88,7 @@ jobs:
       displayName: 'pytest'
     
     - script: |
-        pyo3-pack publish -u omerba -p $(pypi.password)
+        maturin publish -u omerba -p $(pypi.password)
       displayName: "Upload to PyPi"
       condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
 
@@ -119,7 +119,7 @@ jobs:
       displayName: "Create date variable"
 
     - script: |
-        cargo install pyo3-pack
+        cargo install maturin
       displayName: "Install PyO3-pack"
 
     - task: UsePythonVersion@0
@@ -129,10 +129,10 @@ jobs:
 
     - script: |
         python -m pip install --upgrade pip setuptools wheel
-      displayName: 'Install pyo3-pack'
+      displayName: 'Install maturin'
 
     - script: |
-        pyo3-pack build -o $(Build.BinariesDirectory) --interpreter python
+        maturin build -o $(Build.BinariesDirectory) --interpreter python
       displayName: 'PyO3-pack build'
 
     - powershell: |
@@ -145,7 +145,7 @@ jobs:
       displayName: 'pytest'
     
     - script: |
-        pyo3-pack publish -u omerba -p $(pypi.password) --interpreter python
+        maturin publish -u omerba -p $(pypi.password) --interpreter python
       displayName: "Upload to PyPi"
       condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
 
@@ -155,6 +155,6 @@ jobs:
         architecture: 'x64'
 
     - script: |
-        pyo3-pack publish -u omerba -p $(pypi.password) --interpreter python
+        maturin publish -u omerba -p $(pypi.password) --interpreter python
       displayName: "Upload to PyPi"
       condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))

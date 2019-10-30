@@ -209,7 +209,7 @@ impl PyEvtxParser {
     }
 }
 
-fn record_to_pydict(record: SerializedEvtxRecord, py: Python) -> PyResult<&PyDict> {
+fn record_to_pydict(record: SerializedEvtxRecord<String>, py: Python) -> PyResult<&PyDict> {
     let pyrecord = PyDict::new(py);
 
     pyrecord.set_item("event_record_id", record.event_record_id)?;
@@ -219,7 +219,7 @@ fn record_to_pydict(record: SerializedEvtxRecord, py: Python) -> PyResult<&PyDic
 }
 
 fn record_to_pyobject(
-    r: Result<SerializedEvtxRecord, evtx::err::Error>,
+    r: Result<SerializedEvtxRecord<String>, evtx::err::Error>,
     py: Python,
 ) -> PyResult<PyObject> {
     match r {
@@ -234,7 +234,7 @@ fn record_to_pyobject(
 #[pyclass]
 pub struct PyRecordsIterator {
     inner: IntoIterChunks<Box<dyn ReadSeek>>,
-    records: Option<Vec<Result<SerializedEvtxRecord, evtx::err::Error>>>,
+    records: Option<Vec<Result<SerializedEvtxRecord<String>, evtx::err::Error>>>,
     settings: ParserSettings,
     output_format: OutputFormat,
 }
@@ -268,12 +268,16 @@ impl PyRecordsIterator {
                                 self.records = match self.output_format {
                                     OutputFormat::XML => Some(
                                         chunk
-                                            .iter_serialized_records::<XmlOutput<Vec<u8>>>()
+                                            .iter()
+                                            .filter_map(|r| r.ok())
+                                            .map(|r| r.into_xml())
                                             .collect(),
                                     ),
                                     OutputFormat::JSON => Some(
                                         chunk
-                                            .iter_serialized_records::<JsonOutput<Vec<u8>>>()
+                                            .iter()
+                                            .filter_map(|r| r.ok())
+                                            .map(|r| r.into_json())
                                             .collect(),
                                     ),
                                 };
