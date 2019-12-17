@@ -2,22 +2,24 @@
 #![deny(unused_must_use)]
 #![cfg_attr(not(debug_assertions), deny(clippy::dbg_macro))]
 
-use evtx::{
-    EvtxParser, IntoIterChunks, JsonOutput, ParserSettings, SerializedEvtxRecord, XmlOutput,
-};
+use evtx::{err, err::EvtxError, EvtxParser, IntoIterChunks, ParserSettings, SerializedEvtxRecord};
 
-use pyo3::exceptions::{NotImplementedError, RuntimeError, ValueError};
+use pyo3::exceptions::{FileNotFoundError, NotImplementedError, OSError, RuntimeError, ValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::types::PyString;
-
 use pyo3::PyIterProtocol;
-use pyo3_file::PyFileLikeObject;
 
 use encoding::all::encodings;
+use pyo3_file::PyFileLikeObject;
+
+use evtx::err::{ChunkError, DeserializationError, InputError, SerializationError};
+
+use std::error::Error;
 use std::fs::File;
+use std::io;
 use std::io::{Read, Seek, SeekFrom};
-use std::{io, mem};
+use std::sync::Arc;
 
 pub trait ReadSeek: Read + Seek {
     fn tell(&mut self) -> io::Result<u64> {
@@ -27,15 +29,52 @@ pub trait ReadSeek: Read + Seek {
 
 impl<T: Read + Seek> ReadSeek for T {}
 
-struct PyEvtxError(evtx::err::Error);
+struct PyEvtxError(EvtxError);
+
+fn py_err_from_io_err(e: &io::Error) -> PyErr {
+    return match e.kind() {
+        io::ErrorKind::NotFound => PyErr::new::<FileNotFoundError, _>(format!("{}", e)),
+        _ => PyErr::new::<OSError, _>(format!("{}", e)),
+    };
+}
 
 impl From<PyEvtxError> for PyErr {
     fn from(err: PyEvtxError) -> Self {
         match err.0 {
-            evtx::err::Error::IO {
+            err::EvtxError::FailedToParseChunk {
+                chunk_id: _,
                 source,
-                backtrace: _,
-            } => source.into(),
+            } => match source {
+                ChunkError::FailedToSeekToChunk(io) => {
+                    return py_err_from_io_err(&io);
+                }
+                _ => return PyErr::new::<RuntimeError, _>(format!("{}", source)),
+            },
+            EvtxError::InputError(e) => match e {
+                InputError::FailedToOpenFile {
+                    source: inner,
+                    path: _,
+                } => return py_err_from_io_err(&inner),
+            },
+            EvtxError::SerializationError(e) => match e {
+                SerializationError::Unimplemented { .. } => {
+                    PyErr::new::<NotImplementedError, _>(format!("{}", e))
+                }
+                _ => PyErr::new::<RuntimeError, _>(format!("{}", e)),
+            },
+            EvtxError::DeserializationError(e) => match e {
+                DeserializationError::UnexpectedIoError(ref io) => match io.source() {
+                    Some(inner_io_err) => match inner_io_err.downcast_ref::<io::Error>() {
+                        Some(actual_inner_io_err) => py_err_from_io_err(actual_inner_io_err),
+                        None => PyErr::new::<RuntimeError, _>(format!("{}", e)),
+                    },
+                    None => PyErr::new::<RuntimeError, _>(format!("{}", e)),
+                },
+                _ => PyErr::new::<RuntimeError, _>(format!("{}", e)),
+            },
+            EvtxError::Unimplemented { .. } => {
+                PyErr::new::<NotImplementedError, _>(format!("{}", err.0))
+            }
             _ => PyErr::new::<RuntimeError, _>(format!("{}", err.0)),
         }
     }
@@ -203,7 +242,7 @@ impl PyEvtxParser {
         Ok(PyRecordsIterator {
             inner: inner.into_chunks(),
             records: None,
-            settings: ParserSettings::new(),
+            settings: Arc::new(ParserSettings::new()),
             output_format,
         })
     }
@@ -219,7 +258,7 @@ fn record_to_pydict(record: SerializedEvtxRecord<String>, py: Python) -> PyResul
 }
 
 fn record_to_pyobject(
-    r: Result<SerializedEvtxRecord<String>, evtx::err::Error>,
+    r: Result<SerializedEvtxRecord<String>, EvtxError>,
     py: Python,
 ) -> PyResult<PyObject> {
     match r {
@@ -234,8 +273,8 @@ fn record_to_pyobject(
 #[pyclass]
 pub struct PyRecordsIterator {
     inner: IntoIterChunks<Box<dyn ReadSeek>>,
-    records: Option<Vec<Result<SerializedEvtxRecord<String>, evtx::err::Error>>>,
-    settings: ParserSettings,
+    records: Option<Vec<Result<SerializedEvtxRecord<String>, EvtxError>>>,
+    settings: Arc<ParserSettings>,
     output_format: OutputFormat,
 }
 
@@ -243,6 +282,7 @@ impl PyRecordsIterator {
     fn next(&mut self) -> PyResult<Option<PyObject>> {
         let gil = Python::acquire_gil();
         let py = gil.python();
+        let mut chunk_id = 0;
 
         loop {
             if let Some(record) = self.records.as_mut().and_then(Vec::pop) {
@@ -250,6 +290,7 @@ impl PyRecordsIterator {
             }
 
             let chunk = self.inner.next();
+            chunk_id += 1;
 
             match chunk {
                 None => return Ok(None),
@@ -258,11 +299,15 @@ impl PyRecordsIterator {
                         return Err(PyEvtxError(e).into());
                     }
                     Ok(mut chunk) => {
-                        let parsed_chunk = chunk.parse(&self.settings);
+                        let parsed_chunk = chunk.parse(self.settings.clone());
 
                         match parsed_chunk {
                             Err(e) => {
-                                return Err(PyEvtxError(e).into());
+                                return Err(PyEvtxError(EvtxError::FailedToParseChunk {
+                                    chunk_id,
+                                    source: e,
+                                })
+                                .into());
                             }
                             Ok(mut chunk) => {
                                 self.records = match self.output_format {
