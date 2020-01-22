@@ -1,6 +1,6 @@
 [package]
 name = "evtx"
-version = "0.6.5"
+version = "0.6.6"
 authors = ["Omer Ben-Amram <omerbenamram@gmail.com>"]
 edition = "2018"
 
@@ -8,7 +8,7 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-evtx = {version = "0.6.5", default-features=false, features=["multithreading"]}
+evtx = {version = "0.6.6", default-features=false, features=["multithreading"]}
 encoding = "0.2.33"
 pyo3 = {version = "0.8.4", features = ["extension-module", "python3"], default-features=false}
 pyo3-file = "0.3.0"

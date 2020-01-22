@@ -239,17 +239,17 @@ dependencies = [
 
 [[package]]
 name = "evtx"
-version = "0.6.5"
+version = "0.6.6"
 dependencies = [
  "encoding 0.2.33 (registry+https://github.com/rust-lang/crates.io-index)",
- "evtx 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "evtx 0.6.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "pyo3 0.8.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "pyo3-file 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "evtx"
-version = "0.6.5"
+version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -930,7 +930,7 @@ dependencies = [
 "checksum encoding_index_tests 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "a246d82be1c9d791c5dfde9a2bd045fc3cbba3fa2b11ad558f27d01712f00569"
 "checksum env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "44533bbbb3bb3c1fa17d9f2e4e38bbbaf8396ba82193c4cb1b6445d711445d36"
 "checksum error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3ab49e9dcb602294bc42f9a7dfc9bc6e936fca4418ea300dbfb84fe16de0b7d9"
-"checksum evtx 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)" = "3f2d7655e0c29998e2eb6b8a6d9fb27f4950a1a055e5bc58f4270e297e768031"
+"checksum evtx 0.6.6 (registry+https://github.com/rust-lang/crates.io-index)" = "00ec9e51d233dfdc22b34514e773f1785fd716149abcb8abbe1f131fd9c82139"
 "checksum fuchsia-cprng 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
 "checksum ghost 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5297b71943dc9fea26a3241b178c140ee215798b7f79f7773fd61683e25bca74"
 "checksum glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)" = "8be18de09a56b60ed0edf84bc9df007e30040691af7acd1c41874faac5895bfb"
