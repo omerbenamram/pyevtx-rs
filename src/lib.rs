@@ -139,18 +139,17 @@ impl FileOrFileLike {
 ///                      pua-mapped-binary, iso-8859-8-i
 ///
 pub struct PyEvtxParser {
-    inner: Option<EvtxParser<Box<dyn ReadSeek>>>,
+    inner: Option<EvtxParser<Box<dyn ReadSeek + Send>>>,
 }
 
 #[pymethods]
 impl PyEvtxParser {
     #[new]
     fn new(
-        obj: &PyRawObject,
         path_or_file_like: PyObject,
         number_of_threads: Option<usize>,
         ansi_codec: Option<String>,
-    ) -> PyResult<()> {
+    ) -> PyResult<Self> {
         let file_or_file_like = FileOrFileLike::from_pyobject(path_or_file_like)?;
 
         // Setup `ansi_codec`
@@ -181,22 +180,18 @@ impl PyEvtxParser {
         let boxed_read_seek = match file_or_file_like {
             FileOrFileLike::File(s) => {
                 let file = File::open(s)?;
-                Box::new(file) as Box<dyn ReadSeek>
+                Box::new(file) as Box<dyn ReadSeek + Send>
             }
-            FileOrFileLike::FileLike(f) => Box::new(f) as Box<dyn ReadSeek>,
+            FileOrFileLike::FileLike(f) => Box::new(f) as Box<dyn ReadSeek + Send>,
         };
 
         let parser = EvtxParser::from_read_seek(boxed_read_seek)
             .map_err(PyEvtxError)?
             .with_configuration(configuration);
 
-        obj.init({
-            PyEvtxParser {
-                inner: Some(parser),
-            }
-        });
-
-        Ok(())
+        Ok(PyEvtxParser {
+            inner: Some(parser),
+        })
     }
 
     /// records(self, /)
@@ -272,7 +267,7 @@ fn record_to_pyobject(
 
 #[pyclass]
 pub struct PyRecordsIterator {
-    inner: IntoIterChunks<Box<dyn ReadSeek>>,
+    inner: IntoIterChunks<Box<dyn ReadSeek + Send>>,
     records: Option<Vec<Result<SerializedEvtxRecord<String>, EvtxError>>>,
     settings: Arc<ParserSettings>,
     output_format: OutputFormat,

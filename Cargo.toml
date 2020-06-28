@@ -10,5 +10,5 @@ crate-type = ["cdylib"]
 [dependencies]
 evtx = {version = "0.6.6", default-features=false, features=["multithreading"]}
 encoding = "0.2.33"
-pyo3 = {version = "0.8.4", features = ["extension-module", "python3"], default-features=false}
-pyo3-file = "0.3.0"
+pyo3 = "0.11.0"
+pyo3-file = "0.3.2"

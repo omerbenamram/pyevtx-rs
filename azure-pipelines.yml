@@ -15,7 +15,7 @@ jobs:
       inputs:
         versionSpec: '3.6'
         architecture: 'x64'
-  
+
     - script: |
         python -m pip install --upgrade pip setuptools wheel
       displayName: 'Install setuptools+wheel'
@@ -31,7 +31,7 @@ jobs:
         pip install pytest pytest-azurepipelines
         pytest
       displayName: 'pytest'
-    
+
     - script: |
         docker run -v $(Build.SourcesDirectory):/io konstin2/pyo3-pack:master publish -u omerba -p $(pypi.password)
       displayName: "Upload to PyPi"
@@ -39,24 +39,24 @@ jobs:
 
 
 - job:
-  displayName: macOS-10.13
+  displayName: macOS-10.14
 
   pool:
-    vmImage: 'macOS-10.13'
+    vmImage: 'macOS-10.14'
 
   steps:
     - script: |
         curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
         echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
       displayName: "Install rust"
-    
+
     - bash: |
         MY_TAG="$(Build.SourceBranch)"
         MY_TAG=${MY_TAG#refs/tags/}
         echo $MY_TAG
         echo "##vso[task.setvariable variable=build.my_tag]$MY_TAG"
       displayName: "Create tag variable"
-    
+
     - bash: |
         DATE="$(date +%Y-%m-%d)"
         echo "##vso[task.setvariable variable=build.date]$DATE"
@@ -70,7 +70,7 @@ jobs:
       inputs:
         versionSpec: '3.6'
         architecture: 'x64'
-  
+
     - script: |
         python -m pip install --upgrade pip setuptools wheel
       displayName: 'Install maturin'
@@ -87,14 +87,14 @@ jobs:
         pip install pytest pytest-azurepipelines
         pytest
       displayName: 'pytest'
-    
+
     - script: |
         maturin publish -u omerba -p $(pypi.password)
       displayName: "Upload to PyPi"
       condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
 
 
-- job: 
+- job:
   displayName: Windows
 
   pool:
@@ -106,14 +106,14 @@ jobs:
           rustup-init.exe -y --default-host x86_64-pc-windows-msvc --default-toolchain nightly
           echo "##vso[task.setvariable variable=PATH;]%PATH%;%USERPROFILE%\.cargo\bin"
       displayName: Install rust
-    
+
     - bash: |
         MY_TAG="$(Build.SourceBranch)"
         MY_TAG=${MY_TAG#refs/tags/}
         echo $MY_TAG
         echo "##vso[task.setvariable variable=build.my_tag]$MY_TAG"
       displayName: "Create tag variable"
-    
+
     - bash: |
         DATE="$(date +%Y-%m-%d)"
         echo "##vso[task.setvariable variable=build.date]$DATE"
@@ -144,16 +144,6 @@ jobs:
         pip install pytest pytest-azurepipelines
         pytest
       displayName: 'pytest'
-    
-    - script: |
-        maturin publish -u omerba -p $(pypi.password) --interpreter python
-      displayName: "Upload to PyPi"
-      condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
-
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '3.7'
-        architecture: 'x64'
 
     - script: |
         maturin publish -u omerba -p $(pypi.password) --interpreter python
