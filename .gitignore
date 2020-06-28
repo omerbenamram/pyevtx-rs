@@ -8,3 +8,5 @@
 *.pyd
 .history
 dist
+.vscode
+.mypy_cache
