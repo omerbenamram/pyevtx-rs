@@ -9,6 +9,7 @@ jobs:
   displayName: manylinux
   pool:
     vmImage: 'ubuntu-16.04'
+
   strategy:
     matrix:
       Python36:
@@ -19,6 +20,7 @@ jobs:
         python.version: '3.7'
       Python38:
         python.version: '3.8'
+
   steps:
     - task: UsePythonVersion@0
       inputs:
@@ -51,23 +53,25 @@ jobs:
 
   pool:
     vmImage: 'macOS-10.14'
-    strategy:
-      matrix:
-        Python36:
-          python.version: '3.6'
-        Python35:
-          python.version: '3.5'
-        Python37:
-          python.version: '3.7'
-        Python38:
-          python.version: '3.8'
-    variables:
-      MACOSX_DEPLOYMENT_TARGET: 10.9
+
+  strategy:
+    matrix:
+      Python36:
+        python.version: '3.6'
+      Python35:
+        python.version: '3.5'
+      Python37:
+        python.version: '3.7'
+      Python38:
+        python.version: '3.8'
+  variables:
+    MACOSX_DEPLOYMENT_TARGET: 10.9
+
   steps:
     - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '$(python.version)'
-      architecture: 'x64'
+      inputs:
+        versionSpec: '$(python.version)'
+        architecture: 'x64'
 
     - script: |
         curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
@@ -122,17 +126,16 @@ jobs:
 
   pool:
     vmImage: 'vs2017-win2016'
-    strategy:
-      matrix:
-        Python36:
-          python.version: '3.6'
-        Python35:
-          python.version: '3.5'
-        Python37:
-          python.version: '3.7'
-        Python38:
-          python.version: '3.8'
-
+  strategy:
+    matrix:
+      Python36:
+        python.version: '3.6'
+      Python35:
+        python.version: '3.5'
+      Python37:
+        python.version: '3.7'
+      Python38:
+        python.version: '3.8'
   steps:
     - script: |
           curl -sSf -o rustup-init.exe https://win.rustup.rs
