@@ -24,7 +24,7 @@ jobs:
       displayName: 'Install maturin'
 
     - script: |
-        pip install $(Build.SourcesDirectory)/target/wheels/evtx-*-*-*.whl
+        pip install $(Build.SourcesDirectory)/target/wheels/evtx-*-cp38-*.whl
       displayName: 'Install new wheel'
 
     - script: |
