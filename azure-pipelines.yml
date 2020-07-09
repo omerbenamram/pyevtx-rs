@@ -93,7 +93,7 @@ jobs:
       displayName: 'Install maturin'
 
     - script: |
-        maturin build -o $(Build.BinariesDirectory) --interpreter python
+        maturin build -o $(Build.BinariesDirectory)
       displayName: 'PyO3-pack build'
 
     - script: |
@@ -164,7 +164,7 @@ jobs:
       displayName: 'Install maturin'
 
     - script: |
-        maturin build -o $(Build.BinariesDirectory) --interpreter python
+        maturin build -o $(Build.BinariesDirectory)
       displayName: 'PyO3-pack build'
 
     - powershell: |
