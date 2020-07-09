@@ -10,21 +10,10 @@ jobs:
   pool:
     vmImage: 'ubuntu-16.04'
 
-  strategy:
-    matrix:
-      Python36:
-        python.version: '3.6'
-      Python35:
-        python.version: '3.5'
-      Python37:
-        python.version: '3.7'
-      Python38:
-        python.version: '3.8'
-
   steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '$(python.version)'
+        versionSpec: '3.8'
         architecture: 'x64'
 
     - script: |
@@ -54,23 +43,13 @@ jobs:
   pool:
     vmImage: 'macOS-10.14'
 
-  strategy:
-    matrix:
-      Python36:
-        python.version: '3.6'
-      Python35:
-        python.version: '3.5'
-      Python37:
-        python.version: '3.7'
-      Python38:
-        python.version: '3.8'
   variables:
     MACOSX_DEPLOYMENT_TARGET: 10.9
 
   steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '$(python.version)'
+        versionSpec: '3.8'
         architecture: 'x64'
 
     - script: |
@@ -121,20 +100,11 @@ jobs:
 
   pool:
     vmImage: 'vs2017-win2016'
-  strategy:
-    matrix:
-      Python36:
-        python.version: '3.6'
-      Python35:
-        python.version: '3.5'
-      Python37:
-        python.version: '3.7'
-      Python38:
-        python.version: '3.8'
+
   steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '$(python.version)'
+        versionSpec: '3.8'
         architecture: 'x64'
 
     - script: |
