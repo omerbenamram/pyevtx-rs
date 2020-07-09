@@ -132,6 +132,11 @@ jobs:
       Python38:
         python.version: '3.8'
   steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(python.version)'
+        architecture: 'x64'
+
     - script: |
           curl -sSf -o rustup-init.exe https://win.rustup.rs
           rustup-init.exe -y --default-host x86_64-pc-windows-msvc --default-toolchain nightly
@@ -163,7 +168,7 @@ jobs:
       displayName: 'PyO3-pack build'
 
     - powershell: |
-        pip install $(Build.BinariesDirectory)/$(Get-ChildItem $(Build.BinariesDirectory)/evtx-*-cp36-*.whl | Select -exp Name)
+        pip install $(Build.BinariesDirectory)/$(Get-ChildItem $(Build.BinariesDirectory)/evtx-*-*-*.whl | Select -exp Name)
       displayName: 'Install new wheel'
 
     - script: |
