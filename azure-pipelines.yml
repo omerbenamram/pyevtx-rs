@@ -9,18 +9,27 @@ jobs:
   displayName: manylinux
   pool:
     vmImage: 'ubuntu-16.04'
-
+  strategy:
+    matrix:
+      Python36:
+        python.version: '3.6'
+      Python35:
+        python.version: '3.5'
+      Python37:
+        python.version: '3.7'
+      Python38:
+        python.version: '3.8'
   steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '3.6'
+        versionSpec: '$(python.version)'
         architecture: 'x64'
 
     - script: |
         python -m pip install --upgrade pip setuptools wheel
       displayName: 'Install setuptools+wheel'
 
-    - script: docker run -v $(Build.SourcesDirectory):/io konstin2/pyo3-pack:master build
+    - script: docker run -v $(Build.SourcesDirectory):/io konstin2/maturin:master build
       displayName: 'Install maturin'
 
     - script: |
@@ -33,18 +42,33 @@ jobs:
       displayName: 'pytest'
 
     - script: |
-        docker run -v $(Build.SourcesDirectory):/io konstin2/pyo3-pack:master publish -u omerba -p $(pypi.password)
+        docker run -v $(Build.SourcesDirectory):/io konstin2/maturin:master publish -u omerba -p $(pypi.password)
       displayName: "Upload to PyPi"
       condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
-
 
 - job:
   displayName: macOS-10.14
 
   pool:
     vmImage: 'macOS-10.14'
-
+    strategy:
+      matrix:
+        Python36:
+          python.version: '3.6'
+        Python35:
+          python.version: '3.5'
+        Python37:
+          python.version: '3.7'
+        Python38:
+          python.version: '3.8'
+    variables:
+      MACOSX_DEPLOYMENT_TARGET: 10.9
   steps:
+    - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(python.version)'
+      architecture: 'x64'
+
     - script: |
         curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
         echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
@@ -93,12 +117,21 @@ jobs:
       displayName: "Upload to PyPi"
       condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
 
-
 - job:
   displayName: Windows
 
   pool:
     vmImage: 'vs2017-win2016'
+    strategy:
+      matrix:
+        Python36:
+          python.version: '3.6'
+        Python35:
+          python.version: '3.5'
+        Python37:
+          python.version: '3.7'
+        Python38:
+          python.version: '3.8'
 
   steps:
     - script: |
