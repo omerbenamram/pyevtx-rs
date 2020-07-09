@@ -35,7 +35,7 @@ jobs:
       displayName: 'Install maturin'
 
     - script: |
-        pip install $(Build.SourcesDirectory)/target/wheels/evtx-*-cp36-*.whl
+        pip install $(Build.SourcesDirectory)/target/wheels/evtx-*-*-*.whl
       displayName: 'Install new wheel'
 
     - script: |
@@ -94,21 +94,16 @@ jobs:
         cargo install maturin
       displayName: "Install PyO3-pack"
 
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '3.6'
-        architecture: 'x64'
-
     - script: |
         python -m pip install --upgrade pip setuptools wheel
       displayName: 'Install maturin'
 
     - script: |
-        maturin build -o $(Build.BinariesDirectory)
+        maturin build -o $(Build.BinariesDirectory) --interpreter python
       displayName: 'PyO3-pack build'
 
     - script: |
-        pip install $(Build.BinariesDirectory)/evtx-*-cp36-*.whl
+        pip install $(Build.BinariesDirectory)/evtx-*-*-*.whl
       displayName: 'Install new wheel'
 
     - script: |
@@ -158,11 +153,6 @@ jobs:
     - script: |
         cargo install maturin
       displayName: "Install PyO3-pack"
-
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '3.6'
-        architecture: 'x64'
 
     - script: |
         python -m pip install --upgrade pip setuptools wheel
