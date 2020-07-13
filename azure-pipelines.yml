@@ -177,6 +177,6 @@ jobs:
       displayName: 'pytest'
 
     - script: |
-        maturin publish -u omerba -p $(pypi.password) --interpreter python
+        maturin publish -u omerba -p $(pypi.password)
       displayName: "Upload to PyPi"
       condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
