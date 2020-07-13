@@ -1,7 +1,7 @@
 [package]
 name = "evtx"
 description = "Python bindings for https://github.com/omerbenamram/evtx"
-version = "0.6.9"
+version = "0.6.10"
 authors = ["Omer Ben-Amram <omerbenamram@gmail.com>"]
 edition = "2018"
 license = "MIT/Apache-2.0"
