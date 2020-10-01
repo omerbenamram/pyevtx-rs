@@ -4,8 +4,7 @@
 
 use evtx::{err, err::EvtxError, EvtxParser, IntoIterChunks, ParserSettings, SerializedEvtxRecord};
 
-use pyo3::exceptions::{FileNotFoundError, NotImplementedError, OSError, RuntimeError, ValueError};
-use pyo3::prelude::*;
+use pyo3::{exceptions::PyFileNotFoundError, exceptions::PyNotImplementedError, exceptions::PyOSError, exceptions::PyRuntimeError, exceptions::PyValueError, prelude::*};
 use pyo3::types::PyDict;
 use pyo3::types::PyString;
 use pyo3::PyIterProtocol;
@@ -33,8 +32,8 @@ struct PyEvtxError(EvtxError);
 
 fn py_err_from_io_err(e: &io::Error) -> PyErr {
     return match e.kind() {
-        io::ErrorKind::NotFound => PyErr::new::<FileNotFoundError, _>(format!("{}", e)),
-        _ => PyErr::new::<OSError, _>(format!("{}", e)),
+        io::ErrorKind::NotFound => PyErr::new::<PyFileNotFoundError, _>(format!("{}", e)),
+        _ => PyErr::new::<PyOSError, _>(format!("{}", e)),
     };
 }
 
@@ -48,7 +47,7 @@ impl From<PyEvtxError> for PyErr {
                 ChunkError::FailedToSeekToChunk(io) => {
                     return py_err_from_io_err(&io);
                 }
-                _ => return PyErr::new::<RuntimeError, _>(format!("{}", source)),
+                _ => return PyErr::new::<PyRuntimeError, _>(format!("{}", source)),
             },
             EvtxError::InputError(e) => match e {
                 InputError::FailedToOpenFile {
@@ -58,24 +57,24 @@ impl From<PyEvtxError> for PyErr {
             },
             EvtxError::SerializationError(e) => match e {
                 SerializationError::Unimplemented { .. } => {
-                    PyErr::new::<NotImplementedError, _>(format!("{}", e))
+                    PyErr::new::<PyNotImplementedError, _>(format!("{}", e))
                 }
-                _ => PyErr::new::<RuntimeError, _>(format!("{}", e)),
+                _ => PyErr::new::<PyRuntimeError, _>(format!("{}", e)),
             },
             EvtxError::DeserializationError(e) => match e {
                 DeserializationError::UnexpectedIoError(ref io) => match io.source() {
                     Some(inner_io_err) => match inner_io_err.downcast_ref::<io::Error>() {
                         Some(actual_inner_io_err) => py_err_from_io_err(actual_inner_io_err),
-                        None => PyErr::new::<RuntimeError, _>(format!("{}", e)),
+                        None => PyErr::new::<PyRuntimeError, _>(format!("{}", e)),
                     },
-                    None => PyErr::new::<RuntimeError, _>(format!("{}", e)),
+                    None => PyErr::new::<PyRuntimeError, _>(format!("{}", e)),
                 },
-                _ => PyErr::new::<RuntimeError, _>(format!("{}", e)),
+                _ => PyErr::new::<PyRuntimeError, _>(format!("{}", e)),
             },
             EvtxError::Unimplemented { .. } => {
-                PyErr::new::<NotImplementedError, _>(format!("{}", err.0))
+                PyErr::new::<PyNotImplementedError, _>(format!("{}", err.0))
             }
-            _ => PyErr::new::<RuntimeError, _>(format!("{}", err.0)),
+            _ => PyErr::new::<PyRuntimeError, _>(format!("{}", err.0)),
         }
     }
 }
@@ -157,7 +156,7 @@ impl PyEvtxParser {
             match encodings().iter().find(|c| c.name() == codec) {
                 Some(encoding) => *encoding,
                 None => {
-                    return Err(PyErr::new::<ValueError, _>(format!(
+                    return Err(PyErr::new::<PyValueError, _>(format!(
                         "Unknown encoding `[{}]`, see help for possible values",
                         codec
                     )));
@@ -228,7 +227,7 @@ impl PyEvtxParser {
         let inner = match self.inner.take() {
             Some(inner) => inner,
             None => {
-                return Err(PyErr::new::<RuntimeError, _>(
+                return Err(PyErr::new::<PyRuntimeError, _>(
                     "PyEvtxParser can only be used once",
                 ));
             }
@@ -336,7 +335,7 @@ impl PyIterProtocol for PyEvtxParser {
         slf.records()
     }
     fn __next__(_slf: PyRefMut<Self>) -> PyResult<Option<PyObject>> {
-        Err(PyErr::new::<NotImplementedError, _>("Using `next()` over `PyEvtxParser` is not supported. Try iterating over `PyEvtxParser(...).records()`"))
+        Err(PyErr::new::<PyNotImplementedError, _>("Using `next()` over `PyEvtxParser` is not supported. Try iterating over `PyEvtxParser(...).records()`"))
     }
 }
 
