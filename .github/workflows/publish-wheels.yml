@@ -38,9 +38,6 @@ jobs:
 
       - uses: actions/setup-python@v2
         with:
-          python-version: 3.5
-      - uses: actions/setup-python@v2
-        with:
           python-version: 3.6
       - uses: actions/setup-python@v2
         with:
@@ -65,6 +62,10 @@ jobs:
         run: |
           curl -L https://github.com/PyO3/maturin/releases/download/v0.11.0/${{ matrix.maturin_asset }} | tar -xz
           chmod +x ./maturin
+          mkdir wheels
+          ./maturin build -o ./wheels
+          python3.8 -m pip install ./wheels/*-cp38-*.whl
+          python3.8 -m pytest
 
       - name: Build (Windows)
         if: matrix.os == 'windows-2019'
