@@ -63,7 +63,7 @@ jobs:
           curl -L https://github.com/PyO3/maturin/releases/download/v0.11.0/${{ matrix.maturin_asset }} | tar -xz
           chmod +x ./maturin
           mkdir wheels
-          ./maturin build -o ./wheels
+          ./maturin build -o ./wheels -i python
 
       - name: Build (Windows)
         if: matrix.os == 'windows-2019'
@@ -72,17 +72,28 @@ jobs:
           curl -L https://github.com/PyO3/maturin/releases/download/v0.11.0/${{ matrix.maturin_asset }} -o maturin.zip
           7z e maturin.zip
           mkdir wheels
-          ./maturin.exe build -o ./wheels
+          ./maturin.exe build -o ./wheels -i python
 
       - name: Test
         run: |
-          python3.8 -m pip install -U pip
-          python3.8 -m pip install -U setuptools wheel pytest
-          python3.8 -m pip install ./wheels/*-cp38-*.whl
-          python3.8 -m pytest
+          python -m pip install -U pip
+          python -m pip install -U setuptools wheel pytest
+          python -m pip install ./wheels/*.whl
+          python -m pytest
 
-      # - name: Install wheel
-      #   shell: bash
-      #   run: |
-      #     pip install ./wheels/*.whl
+      - name: Upload to PyPi
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+
+      - name: Upload to PyPi
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.os == 'windows-2019'
+        shell: pwsh
+        run: |
+          ./maturin.exe publish -u omerba -p ${{ secrets.PYPI_PASSWORD }}
+
+      - name: Upload to PyPi
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.os != 'windows-2019'
+        shell: bash
+        run: |
+          ./maturin publish -u omerba -p ${{ secrets.PYPI_PASSWORD }}
 
