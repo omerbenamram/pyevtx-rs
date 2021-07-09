@@ -8,9 +8,8 @@ on:
       - "ci"
 
 jobs:
-  build-wheels:
-    name: build-wheels
-    needs: ["create-release"]
+  build-and-publish-wheels:
+    name: build-and-publish-wheels
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
