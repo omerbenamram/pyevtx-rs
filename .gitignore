@@ -1,6 +1,7 @@
 /target
 **/*.rs.bk
 
+.venv
 *.pyc
 *.egg-info/
 *.so
