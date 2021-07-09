@@ -40,7 +40,7 @@ jobs:
       - name: Build example wheel
         run: |
           mkdir wheels
-          ./maturin build -m ./examples/path_or_file_like/Cargo.toml -o ./wheels
+          ./maturin build -o ./wheels
 
       - name: Install wheel
         run: |
