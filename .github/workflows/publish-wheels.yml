@@ -76,11 +76,22 @@ jobs:
           mkdir wheels
           ./maturin.exe build -o .\wheels -i python
 
-      - name: Test
+      - name: Install python deps
         run: |
           python -m pip install -U pip
           python -m pip install -U setuptools wheel pytest
+
+      - name: Install wheel (Unix)
+        run: |
           python -m pip install ./wheels/*.whl
+          python -m pytest
+
+      - name: Install wheel (Windows)
+        run: |
+          python -m pip install .\wheels\$(Get-ChildItem wheels/*.whl | Select -exp Name)
+
+      - name: Test
+        run: |
           python -m pytest
 
       - name: Upload to PyPi (Unix)
