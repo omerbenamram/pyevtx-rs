@@ -97,13 +97,13 @@ jobs:
           python -m pytest
 
       - name: Upload to PyPi (Unix)
-        if: startsWith(github.ref, 'refs/tags/v') && matrix.os != 'windows-2019'
+        if: startsWith(github.ref, 'refs/tags/') && matrix.os != 'windows-2019'
         shell: bash
         run: |
           ./maturin publish -u omerba -p ${{ secrets.PYPI_PASSWORD }}
 
       - name: Upload to PyPi (Windows)
-        if: startsWith(github.ref, 'refs/tags/v') && matrix.os == 'windows-2019'
+        if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'windows-2019'
         shell: pwsh
         run: |
           ./maturin.exe publish -u omerba -p ${{ secrets.PYPI_PASSWORD }}
