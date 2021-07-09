@@ -4,10 +4,13 @@
 
 use evtx::{err, err::EvtxError, EvtxParser, IntoIterChunks, ParserSettings, SerializedEvtxRecord};
 
-use pyo3::{exceptions::PyFileNotFoundError, exceptions::PyNotImplementedError, exceptions::PyOSError, exceptions::PyRuntimeError, exceptions::PyValueError, prelude::*};
 use pyo3::types::PyDict;
 use pyo3::types::PyString;
 use pyo3::PyIterProtocol;
+use pyo3::{
+    exceptions::PyFileNotFoundError, exceptions::PyNotImplementedError, exceptions::PyOSError,
+    exceptions::PyRuntimeError, exceptions::PyValueError, prelude::*,
+};
 
 use encoding::all::encodings;
 use pyo3_file::PyFileLikeObject;
@@ -31,10 +34,10 @@ impl<T: Read + Seek> ReadSeek for T {}
 struct PyEvtxError(EvtxError);
 
 fn py_err_from_io_err(e: &io::Error) -> PyErr {
-    return match e.kind() {
+    match e.kind() {
         io::ErrorKind::NotFound => PyErr::new::<PyFileNotFoundError, _>(format!("{}", e)),
         _ => PyErr::new::<PyOSError, _>(format!("{}", e)),
-    };
+    }
 }
 
 impl From<PyEvtxError> for PyErr {
@@ -44,16 +47,14 @@ impl From<PyEvtxError> for PyErr {
                 chunk_id: _,
                 source,
             } => match source {
-                ChunkError::FailedToSeekToChunk(io) => {
-                    return py_err_from_io_err(&io);
-                }
-                _ => return PyErr::new::<PyRuntimeError, _>(format!("{}", source)),
+                ChunkError::FailedToSeekToChunk(io) => py_err_from_io_err(&io),
+                _ => PyErr::new::<PyRuntimeError, _>(format!("{}", source)),
             },
             EvtxError::InputError(e) => match e {
                 InputError::FailedToOpenFile {
                     source: inner,
                     path: _,
-                } => return py_err_from_io_err(&inner),
+                } => py_err_from_io_err(&inner),
             },
             EvtxError::SerializationError(e) => match e {
                 SerializationError::Unimplemented { .. } => {

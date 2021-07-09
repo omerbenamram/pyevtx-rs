@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - "*"
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.8"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          pip install -U setuptools wheel pytest
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+          target: ${{ matrix.target }}
+
+      - name: Fetch maturin release
+        run: |
+          curl -L https://github.com/PyO3/maturin/releases/download/v0.11.0/maturin-x86_64-unknown-linux-musl.tar.gz | tar -xz
+          chmod +x ./maturin
+
+      - name: Build example wheel
+        run: |
+          mkdir wheels
+          ./maturin build -m ./examples/path_or_file_like/Cargo.toml -o ./wheels
+
+      - name: Install wheel
+        run: |
+          pip install ./wheels/*.whl
+
+      - name: Test
+        run: |
+          pytest

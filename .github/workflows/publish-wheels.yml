@@ -1,0 +1,85 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+    branches:
+      - "ci"
+
+jobs:
+  build-wheels:
+    name: build-wheels
+    needs: ["create-release"]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [linux, macos, win-msvc]
+        include:
+          - build: linux
+            os: ubuntu-18.04
+            rust: stable
+            target: x86_64-unknown-linux-gnu
+            maturin_asset: maturin-x86_64-unknown-linux-musl.tar.gz
+          - build: macos
+            os: macos-latest
+            rust: stable
+            target: x86_64-apple-darwin
+            maturin_asset: maturin-x86_64-apple-darwin.tar.gz
+          - build: win-msvc
+            os: windows-2019
+            rust: stable
+            target: x86_64-pc-windows-msvc
+            maturin_asset: maturin-x86_64-pc-windows-msvc.zip
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.5
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+          target: ${{ matrix.target }}
+
+      - name: Build (Unix)
+        if: matrix.os != 'windows-2019'
+        run: |
+          curl -L https://github.com/PyO3/maturin/releases/download/v0.11.0/${{ matrix.maturin_asset }} | tar -xz
+          chmod +x ./maturin
+
+      - name: Build (Windows)
+        if: matrix.os == 'windows-2019'
+        shell: pwsh
+        run: |
+          curl -L https://github.com/PyO3/maturin/releases/download/v0.11.0/${{ matrix.maturin_asset }} -o maturin.zip
+          7z e maturin.zip
+          mkdir wheels
+          ./maturin.exe build -o ./wheels
+          python3.8 -m pip install ./wheels/*-cp38-*.whl
+          python3.8 -m pytest
+
+      # - name: Install wheel
+      #   shell: bash
+      #   run: |
+      #     pip install ./wheels/*.whl
+

@@ -8,13 +8,13 @@ Python bindings for `https://github.com/omerbenamram/evtx/`.
 
 Available on PyPi - https://pypi.org/project/evtx/.
 
-To install from PyPi - `pip install evtx` 
+To install from PyPi - `pip install evtx`
 
 ### Wheels
-Wheels are currently automatically built for python3.6 python3.7 for all 64-bit platforms (Windows, macOS, and `manylinux`).
+Wheels are currently automatically built for python 3.6,3.7,3.8,3.9 for all 64-bit platforms (Windows, macOS, and `manylinux`).
 
 ### Installation from sources
-Installation is possible for other platforms by installing from sources, this requires a nightly rust compiler and `setuptools-rust`.
+Installation is possible for other platforms by installing from sources, this requires a rust compiler and `setuptools-rust`.
 
 Run `python setup.py install`
 
@@ -62,7 +62,7 @@ from evtx.parser import PyEvtxParser
 
 def main():
     a = open("./samples/Security_short_selected.evtx", 'rb')
-    
+
     # io.BytesIO is also supported.
     parser = PyEvtxParser(a)
     for record in parser.records_json():
