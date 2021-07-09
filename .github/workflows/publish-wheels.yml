@@ -65,6 +65,8 @@ jobs:
           mkdir wheels
           ./maturin build -o ./wheels -i python
 
+      # Windows doesn't support "python3.8" invocation, only "python" - so we build and test only against latest python
+      # the publish step will utilize the full matrix on interpreters.
       - name: Build (Windows)
         if: matrix.os == 'windows-2019'
         shell: pwsh
@@ -72,7 +74,7 @@ jobs:
           curl -L https://github.com/PyO3/maturin/releases/download/v0.11.0/${{ matrix.maturin_asset }} -o maturin.zip
           7z e maturin.zip
           mkdir wheels
-          ./maturin.exe build -o ./wheels -i python
+          ./maturin.exe build -o .\wheels -i python
 
       - name: Test
         run: |
