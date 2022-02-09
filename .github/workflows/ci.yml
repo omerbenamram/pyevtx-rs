@@ -1,49 +1,77 @@
-name: ci
+name: CI
 
 on:
   push:
-    branches:
-      - "*"
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+  pull_request:
 
 jobs:
-  test:
-    name: test
+  linux:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+    - uses: actions/checkout@v2
+    - uses: messense/maturin-action@v1
+      with:
+        manylinux: auto
+        command: build
+        args: --release -o dist
+    - name: Upload wheels
+      uses: actions/upload-artifact@v2
+      with:
+        name: wheels
+        path: dist
+    - run: pip install -U pytest
+    - run: pip install --no-index --find-links ./dist evtx
+    - run: pytest
+
+  windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: messense/maturin-action@v1
+      with:
+        command: build
+        args: --release --no-sdist -o dist
+    - name: Upload wheels
+      uses: actions/upload-artifact@v2
+      with:
+        name: wheels
+        path: dist
+    - run: pip install -U pytest
+    - run: pip install --no-index --find-links ./dist evtx
+    - run: pytest
+
+  macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: messense/maturin-action@v1
+      with:
+        command: build
+        args: --release --no-sdist -o dist --universal2
+    - name: Upload wheels
+      uses: actions/upload-artifact@v2
+      with:
+        name: wheels
+        path: dist
+    - run: pip install -U pytest
+    - run: pip install --no-index --find-links ./dist evtx
+    - run: pytest
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: "startsWith(github.ref, 'refs/tags/')"
+    needs: [ macos, windows, linux ]
+    steps:
+      - uses: actions/download-artifact@v2
         with:
-          fetch-depth: 1
-
-      - uses: actions/setup-python@v2
+          name: wheels
+      - name: Publish to PyPI
+        uses: messense/maturin-action@v1
+        env:
+          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         with:
-          python-version: "3.8"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install -U pip
-          pip install -U setuptools wheel pytest
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-
-      - name: Fetch maturin release
-        run: |
-          curl -L https://github.com/PyO3/maturin/releases/download/v0.11.0/maturin-x86_64-unknown-linux-musl.tar.gz | tar -xz
-          chmod +x ./maturin
-
-      - name: Build example wheel
-        run: |
-          mkdir wheels
-          ./maturin build -o ./wheels
-
-      - name: Install wheel
-        run: |
-          pip install ./wheels/*.whl
-
-      - name: Test
-        run: |
-          pytest
+          command: upload
+          args: --skip-existing *
