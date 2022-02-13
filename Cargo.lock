@@ -242,16 +242,6 @@ dependencies = [
 [[package]]
 name = "evtx"
 version = "0.7.2"
-dependencies = [
- "encoding",
- "evtx 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "pyo3",
- "pyo3-file",
-]
-
-[[package]]
-name = "evtx"
-version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f99eb1434bb9d6d280896fab0ecd10b62aff17a44c6baa24523977286206ea3"
 dependencies = [
@@ -268,6 +258,16 @@ dependencies = [
  "skeptic",
  "thiserror",
  "winstructs",
+]
+
+[[package]]
+name = "evtx"
+version = "0.7.3"
+dependencies = [
+ "encoding",
+ "evtx 0.7.2",
+ "pyo3",
+ "pyo3-file",
 ]
 
 [[package]]
