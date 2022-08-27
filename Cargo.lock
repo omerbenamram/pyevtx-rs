@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "evtx"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "encoding",
  "evtx 0.7.2",

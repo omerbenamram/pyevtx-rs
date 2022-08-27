@@ -140,6 +140,7 @@ impl FileOrFileLike {
 ///
 pub struct PyEvtxParser {
     inner: Option<EvtxParser<Box<dyn ReadSeek + Send>>>,
+    configuration: ParserSettings,
 }
 
 #[pymethods]
@@ -168,14 +169,14 @@ impl PyEvtxParser {
         };
 
         // Setup `number_of_threads`
-        let n_threads = match number_of_threads {
+        let number_of_threads = match number_of_threads {
             Some(number) => number,
             None => *ParserSettings::default().get_num_threads(),
         };
 
         let configuration = ParserSettings::new()
             .ansi_codec(codec)
-            .num_threads(n_threads);
+            .num_threads(number_of_threads);
 
         let boxed_read_seek = match file_or_file_like {
             FileOrFileLike::File(s) => {
@@ -187,10 +188,11 @@ impl PyEvtxParser {
 
         let parser = EvtxParser::from_read_seek(boxed_read_seek)
             .map_err(PyEvtxError)?
-            .with_configuration(configuration);
+            .with_configuration(configuration.clone());
 
         Ok(PyEvtxParser {
             inner: Some(parser),
+            configuration
         })
     }
 
@@ -237,7 +239,7 @@ impl PyEvtxParser {
         Ok(PyRecordsIterator {
             inner: inner.into_chunks(),
             records: None,
-            settings: Arc::new(ParserSettings::new()),
+            settings: Arc::new(self.configuration.clone()),
             output_format,
         })
     }
