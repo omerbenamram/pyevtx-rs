@@ -64,12 +64,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          target: aarch64-apple-darwin
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+        target: aarch64-apple-darwin
     - uses: messense/maturin-action@v1
       with:
         command: build
