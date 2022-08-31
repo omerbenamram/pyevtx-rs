@@ -63,17 +63,11 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        override: true
-        target: aarch64-apple-darwin
     - uses: messense/maturin-action@v1
       with:
         command: build
-        args: --release --no-sdist -o dist --zig --target aarch64-apple-darwin
+        target: aarch64-apple-darwin
+        args: --release --no-sdist -o dist --zig
     - name: Upload wheels
       uses: actions/upload-artifact@v2
       with:
