@@ -6,7 +6,7 @@ use evtx::{err, err::EvtxError, EvtxParser, IntoIterChunks, ParserSettings, Seri
 
 use pyo3::types::PyDict;
 use pyo3::types::PyString;
-use pyo3::PyIterProtocol;
+
 use pyo3::{
     exceptions::PyFileNotFoundError, exceptions::PyNotImplementedError, exceptions::PyOSError,
     exceptions::PyRuntimeError, exceptions::PyValueError, prelude::*,
@@ -80,7 +80,7 @@ impl From<PyEvtxError> for PyErr {
     }
 }
 
-#[derive(Copy, Clone, PartialOrd, PartialEq)]
+#[derive(Copy, Clone, PartialOrd, PartialEq, Eq)]
 pub enum OutputFormat {
     JSON,
     XML,
@@ -192,7 +192,7 @@ impl PyEvtxParser {
 
         Ok(PyEvtxParser {
             inner: Some(parser),
-            configuration
+            configuration,
         })
     }
 
@@ -222,6 +222,13 @@ impl PyEvtxParser {
     ///        in case an exception object is returned.
     fn records_json(&mut self) -> PyResult<PyRecordsIterator> {
         self.records_iterator(OutputFormat::JSON)
+    }
+
+    fn __iter__(mut slf: PyRefMut<Self>) -> PyResult<PyRecordsIterator> {
+        slf.records()
+    }
+    fn __next__(_slf: PyRefMut<Self>) -> PyResult<Option<PyObject>> {
+        Err(PyErr::new::<PyNotImplementedError, _>("Using `next()` over `PyEvtxParser` is not supported. Try iterating over `PyEvtxParser(...).records()`"))
     }
 }
 
@@ -332,22 +339,13 @@ impl PyRecordsIterator {
     }
 }
 
-#[pyproto]
-impl PyIterProtocol for PyEvtxParser {
-    fn __iter__(mut slf: PyRefMut<Self>) -> PyResult<PyRecordsIterator> {
-        slf.records()
+#[pymethods]
+impl PyRecordsIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
     }
-    fn __next__(_slf: PyRefMut<Self>) -> PyResult<Option<PyObject>> {
-        Err(PyErr::new::<PyNotImplementedError, _>("Using `next()` over `PyEvtxParser` is not supported. Try iterating over `PyEvtxParser(...).records()`"))
-    }
-}
 
-#[pyproto]
-impl PyIterProtocol for PyRecordsIterator {
-    fn __iter__(slf: PyRefMut<Self>) -> PyResult<Py<PyRecordsIterator>> {
-        Ok(slf.into())
-    }
-    fn __next__(mut slf: PyRefMut<Self>) -> PyResult<Option<PyObject>> {
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> PyResult<Option<PyObject>> {
         slf.next()
     }
 }

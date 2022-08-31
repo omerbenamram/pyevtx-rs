@@ -59,6 +59,21 @@ jobs:
     - run: pip install --no-index --find-links ./dist evtx
     - run: pytest
 
+  macos-m1:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: messense/maturin-action@v1
+      with:
+        command: build
+        target: aarch64-apple-darwin
+        args: --release --no-sdist -o dist --zig
+    - name: Upload wheels
+      uses: actions/upload-artifact@v2
+      with:
+        name: wheels
+        path: dist
+
   release:
     name: Release
     runs-on: ubuntu-latest
