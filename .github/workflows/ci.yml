@@ -73,6 +73,7 @@ jobs:
       with:
         name: wheels
         path: dist
+
   release:
     name: Release
     runs-on: ubuntu-latest
