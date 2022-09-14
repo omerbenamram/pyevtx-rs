@@ -1,3 +1,12 @@
+<div align="center">
+  <!-- Downloads -->
+  <a href="https://pypi.org/project/evtx/">
+    <img src="https://pepy.tech/badge/evtx"
+      alt="Download" />
+  </a>
+</div>
+
+
 # pyevtx-rs
 
 Python bindings for `https://github.com/omerbenamram/evtx/`.
