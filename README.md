@@ -19,7 +19,13 @@ To install from PyPi - `pip install evtx`
 
 ### Wheels
 
-Wheels are currently automatically built for Python 3.6, 3.7, 3.8, 3.9, 3.10 for all 64-bit platforms (Windows, macOS, and `manylinux`).
+Wheels are currently automatically built for Python 3.7+ using abi3 tag (which means they are compatible with all version from 3.7 onwards).
+
+Supported platforms are:
+  - Linux x86_64
+  - macOS x86_64
+  - macOS arm64 (m1)
+  - Windows x86_64
 
 ### Installation from sources
 

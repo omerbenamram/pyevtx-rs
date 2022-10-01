@@ -16,6 +16,10 @@ jobs:
       with:
         repository: omerbenamram/evtx
         path: evtx-rs
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
     - name: Build instrumentation wheels
       uses: messense/maturin-action@v1
       with:
@@ -23,7 +27,7 @@ jobs:
         command: build
         args: --release -o dist
       env:
-        RUSTFLAGS: "-Cprofile-generate=/home/runner/work/pyevtx-rs/pyevtx-rs/pgo-data"
+        RUSTFLAGS: "-Cprofile-generate=${{ env.GITHUB_WORKSPACE }}/pgo-data"
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
@@ -32,25 +36,27 @@ jobs:
         override: true
         target: x86_64-unknown-linux-gnu
         components: llvm-tools-preview
+
     - name: PGO optimize
       run: |
         PATH=$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/:$PATH
         pip install --no-index --find-links ./dist evtx
         echo "Running instrumented binary"
-        for i in $(find /home/runner/work/pyevtx-rs/pyevtx-rs/evtx-rs -name "*.evtx"); do
+        sudo mkdir -p $PWD/pgo-data
+        sudo chmod -R 777 $PWD/pgo-data
+        for i in $(find $PWD/evtx-rs/samples -name "*.evtx"); do
             echo "Processing $i"
-            python scripts/evtx_dump.py $i 1>/dev/null 2>&1
+            python scripts/evtx_dump.py $i 1>/dev/null
         done
         echo "Merging profile data"
-        sudo chmod -R 777 /home/runner/work/pyevtx-rs/pyevtx-rs/pgo-data
-        llvm-profdata merge -o /home/runner/work/pyevtx-rs/pyevtx-rs/pgo-data/merged.profdata /home/runner/work/pyevtx-rs/pyevtx-rs/pgo-data
+        llvm-profdata merge -o $PWD/pgo-data/merged.profdata $PWD/pgo-data
     - uses: messense/maturin-action@v1
       with:
         manylinux: auto
         command: build
         args: --release -o dist
       env:
-        RUSTFLAGS: "-Cprofile-use=/home/runner/work/pyevtx-rs/pyevtx-rs/pgo-data/merged.profdata"
+        RUSTFLAGS: "-Cprofile-use=${{ env.GITHUB_WORKSPACE }}/pgo-data/merged.profdata"
     - name: Upload wheels
       uses: actions/upload-artifact@v2
       with:
