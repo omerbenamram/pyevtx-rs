@@ -27,7 +27,7 @@ jobs:
         command: build
         args: --release -o dist
       env:
-        RUSTFLAGS: "-Cprofile-generate=${{ github.workspace }} /pgo-data"
+        RUSTFLAGS: "-Cprofile-generate=${{ github.workspace }}/pgo-data"
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
@@ -56,7 +56,7 @@ jobs:
         command: build
         args: --release -o dist
       env:
-        RUSTFLAGS: "-Cprofile-use=${{ github.workspace }} /pgo-data/merged.profdata"
+        RUSTFLAGS: "-Cprofile-use=${{ github.workspace }}/pgo-data/merged.profdata"
     - name: Upload wheels
       uses: actions/upload-artifact@v2
       with:
