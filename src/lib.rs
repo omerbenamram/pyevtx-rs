@@ -2,7 +2,11 @@
 #![deny(unused_must_use)]
 #![cfg_attr(not(debug_assertions), deny(clippy::dbg_macro))]
 
-use evtx::{err, err::EvtxError, EvtxParser, IntoIterChunks, ParserSettings, SerializedEvtxRecord};
+use evtx_rs::{
+    err,
+    err::{ChunkError, DeserializationError, EvtxError, InputError, SerializationError},
+    EvtxParser, IntoIterChunks, ParserSettings, SerializedEvtxRecord,
+};
 
 use pyo3::types::PyDict;
 use pyo3::types::PyString;
@@ -14,8 +18,6 @@ use pyo3::{
 
 use encoding::all::encodings;
 use pyo3_file::PyFileLikeObject;
-
-use evtx::err::{ChunkError, DeserializationError, InputError, SerializationError};
 
 use std::error::Error;
 use std::fs::File;
@@ -94,21 +96,19 @@ enum FileOrFileLike {
 
 impl FileOrFileLike {
     pub fn from_pyobject(path_or_file_like: PyObject) -> PyResult<FileOrFileLike> {
-        let gil = Python::acquire_gil();
-        let py = gil.python();
+        Python::with_gil(|py| {
+            if let Ok(string_ref) = path_or_file_like.cast_as::<PyString>(py) {
+                return Ok(FileOrFileLike::File(
+                    string_ref.to_string_lossy().to_string(),
+                ));
+            }
 
-        // is a path
-        if let Ok(string_ref) = path_or_file_like.cast_as::<PyString>(py) {
-            return Ok(FileOrFileLike::File(
-                string_ref.to_string_lossy().to_string(),
-            ));
-        }
-
-        // We only need read + seek
-        match PyFileLikeObject::with_requirements(path_or_file_like, true, false, true) {
-            Ok(f) => Ok(FileOrFileLike::FileLike(f)),
-            Err(e) => Err(e),
-        }
+            // We only need read + seek
+            match PyFileLikeObject::with_requirements(path_or_file_like, true, false, true) {
+                Ok(f) => Ok(FileOrFileLike::FileLike(f)),
+                Err(e) => Err(e),
+            }
+        })
     }
 }
 
@@ -284,13 +284,13 @@ pub struct PyRecordsIterator {
 
 impl PyRecordsIterator {
     fn next(&mut self) -> PyResult<Option<PyObject>> {
-        let gil = Python::acquire_gil();
-        let py = gil.python();
         let mut chunk_id = 0;
 
         loop {
             if let Some(record) = self.records.as_mut().and_then(Vec::pop) {
-                return record_to_pyobject(record, py).map(Some);
+                let record = Python::with_gil(|py| record_to_pyobject(record, py).map(Some));
+
+                return record;
             }
 
             let chunk = self.inner.next();
