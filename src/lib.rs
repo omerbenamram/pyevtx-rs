@@ -97,7 +97,7 @@ enum FileOrFileLike {
 impl FileOrFileLike {
     pub fn from_pyobject(path_or_file_like: PyObject) -> PyResult<FileOrFileLike> {
         Python::with_gil(|py| {
-            if let Ok(string_ref) = path_or_file_like.cast_as::<PyString>(py) {
+            if let Ok(string_ref) = path_or_file_like.downcast::<PyString>(py) {
                 return Ok(FileOrFileLike::File(
                     string_ref.to_string_lossy().to_string(),
                 ));
