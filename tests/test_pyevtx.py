@@ -19,9 +19,9 @@ def test_it_works(small_sample):
 
     assert len(records) == 7
 
-    assert records[0]['event_record_id'] == 7
+    assert records[0]['event_record_id']
     assert records[0]['timestamp'].endswith('UTC')
-    assert '<EventID>4673</EventID>' in records[0]['data']
+    assert '<EventID>' in records[0]['data']
 
 
 def test_it_works_with_records(small_sample):
@@ -29,9 +29,9 @@ def test_it_works_with_records(small_sample):
     records = list(parser.records())
     assert len(records) == 7
 
-    assert records[0]['event_record_id'] == 7
+    assert records[0]['event_record_id']
     assert records[0]['timestamp'].endswith('UTC')
-    assert '<EventID>4673</EventID>' in records[0]['data']
+    assert '<EventID>' in records[0]['data']
 
 
 def test_it_works_with_json(small_sample):
@@ -39,9 +39,9 @@ def test_it_works_with_json(small_sample):
     records = list(parser.records_json())
     assert len(records) == 7
 
-    assert records[0]['event_record_id'] == 7
+    assert records[0]['event_record_id']
     assert records[0]['timestamp'].endswith('UTC')
-    assert json.loads(records[0]['data'])['Event']['System']['EventID'] == 4673
+    assert json.loads(records[0]['data'])['Event']['System']['EventID']
 
 
 def test_it_returns_error_when_iterating_twice(small_sample):
@@ -72,9 +72,9 @@ def test_it_works_on_io_object(small_sample):
     records = list(parser.records())
     assert len(records) == 7
 
-    assert records[0]['event_record_id'] == 7
+    assert records[0]['event_record_id']
     assert records[0]['timestamp'].endswith('UTC')
-    assert '<EventID>4673</EventID>' in records[0]['data']
+    assert '<EventID>' in records[0]['data']
 
 
 def test_it_works_on_file_backed_object(small_sample):
@@ -85,9 +85,9 @@ def test_it_works_on_file_backed_object(small_sample):
 
     assert len(records) == 7
 
-    assert records[0]['event_record_id'] == 7
+    assert records[0]['event_record_id']
     assert records[0]['timestamp'].endswith('UTC')
-    assert '<EventID>4673</EventID>' in records[0]['data']
+    assert '<EventID>' in records[0]['data']
 
 
 def test_it_fails_on_file_opened_as_text(small_sample):
@@ -121,9 +121,9 @@ def test_it_supports_various_ascii_codecs(small_sample):
 
         assert len(records) == 7
 
-        assert records[0]['event_record_id'] == 7
+        assert records[0]['event_record_id']
         assert records[0]['timestamp'].endswith('UTC')
-        assert '<EventID>4673</EventID>' in records[0]['data']
+        assert '<EventID>' in records[0]['data']
 
 
 def test_it_supports_various_num_threads(small_sample):
@@ -134,8 +134,8 @@ def test_it_supports_various_num_threads(small_sample):
 
         assert len(records) == 7
 
-        assert records[0]['event_record_id'] == 7
+        assert records[0]['event_record_id'] == 1, "Expect records to be in order when using a single thread"
         assert records[0]['timestamp'].endswith('UTC')
-        assert '<EventID>4673</EventID>' in records[0]['data']
+        assert '<EventID>5152</EventID>' in records[0]['data']
 
 
