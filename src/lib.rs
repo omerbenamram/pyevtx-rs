@@ -24,6 +24,7 @@ use std::fs::File;
 use std::io;
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
+use std::vec::IntoIter;
 
 pub trait ReadSeek: Read + Seek {
     fn tell(&mut self) -> io::Result<u64> {
@@ -245,7 +246,7 @@ impl PyEvtxParser {
 
         Ok(PyRecordsIterator {
             inner: inner.into_chunks(),
-            records: None,
+            records_iter: Vec::new().into_iter(),
             settings: Arc::new(self.configuration.clone()),
             output_format,
         })
@@ -277,7 +278,7 @@ fn record_to_pyobject(
 #[pyclass]
 pub struct PyRecordsIterator {
     inner: IntoIterChunks<Box<dyn ReadSeek + Send>>,
-    records: Option<Vec<Result<SerializedEvtxRecord<String>, EvtxError>>>,
+    records_iter: IntoIter<Result<SerializedEvtxRecord<String>, EvtxError>>,
     settings: Arc<ParserSettings>,
     output_format: OutputFormat,
 }
@@ -287,7 +288,7 @@ impl PyRecordsIterator {
         let mut chunk_id = 0;
 
         loop {
-            if let Some(record) = self.records.as_mut().and_then(Vec::pop) {
+            if let Some(record) = self.records_iter.next() {
                 let record = Python::with_gil(|py| record_to_pyobject(record, py).map(Some));
 
                 return record;
@@ -314,22 +315,20 @@ impl PyRecordsIterator {
                                 .into());
                             }
                             Ok(mut chunk) => {
-                                self.records = match self.output_format {
-                                    OutputFormat::XML => Some(
-                                        chunk
-                                            .iter()
-                                            .filter_map(|r| r.ok())
-                                            .map(|r| r.into_xml())
-                                            .collect(),
-                                    ),
-                                    OutputFormat::JSON => Some(
-                                        chunk
-                                            .iter()
-                                            .filter_map(|r| r.ok())
-                                            .map(|r| r.into_json())
-                                            .collect(),
-                                    ),
+                                let records: Vec<_> = match self.output_format {
+                                    OutputFormat::XML => chunk
+                                        .iter()
+                                        .filter_map(|r| r.ok())
+                                        .map(|r| r.into_xml())
+                                        .collect(),
+                                    OutputFormat::JSON => chunk
+                                        .iter()
+                                        .filter_map(|r| r.ok())
+                                        .map(|r| r.into_json())
+                                        .collect(),
                                 };
+
+                                self.records_iter = records.into_iter();
                             }
                         }
                     }
