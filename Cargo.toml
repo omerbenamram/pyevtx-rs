@@ -12,9 +12,9 @@ name = "evtx"
 crate-type = ["cdylib"]
 
 [dependencies]
-evtx_rs = { version = "0.8.1", default-features = false, features = [
+evtx_rs = { version = "0.8.2", default-features = false, features = [
     "multithreading",
 ], package = "evtx" }
 encoding = "0.2"
-pyo3 = { version = "0.18.1", features = ["extension-module", "abi3-py37"] }
-pyo3-file = { git = "https://github.com/omerbenamram/pyo3-file" }
+pyo3 = { version = "0.21.1", features = ["extension-module", "abi3-py37"] }
+pyo3-file = "0.8.0"
