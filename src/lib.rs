@@ -98,14 +98,14 @@ enum FileOrFileLike {
 impl FileOrFileLike {
     pub fn from_pyobject(path_or_file_like: PyObject) -> PyResult<FileOrFileLike> {
         Python::with_gil(|py| {
-            if let Ok(string_ref) = path_or_file_like.downcast::<PyString>(py) {
+            if let Ok(string_ref) = path_or_file_like.downcast_bound::<PyString>(py) {
                 return Ok(FileOrFileLike::File(
                     string_ref.to_string_lossy().to_string(),
                 ));
             }
 
             // We only need read + seek
-            match PyFileLikeObject::with_requirements(path_or_file_like, true, false, true) {
+            match PyFileLikeObject::with_requirements(path_or_file_like, true, false, true, true) {
                 Ok(f) => Ok(FileOrFileLike::FileLike(f)),
                 Err(e) => Err(e),
             }
@@ -254,12 +254,12 @@ impl PyEvtxParser {
 }
 
 fn record_to_pydict(record: SerializedEvtxRecord<String>, py: Python) -> PyResult<&PyDict> {
-    let pyrecord = PyDict::new(py);
+    let pyrecord = PyDict::new_bound(py);
 
     pyrecord.set_item("event_record_id", record.event_record_id)?;
     pyrecord.set_item("timestamp", format!("{}", record.timestamp))?;
     pyrecord.set_item("data", record.data)?;
-    Ok(pyrecord)
+    Ok(pyrecord.into_gil_ref())
 }
 
 fn record_to_pyobject(
@@ -380,7 +380,7 @@ impl PyRecordsIterator {
 ///        print(f'------------------------------------------')
 ///```
 #[pymodule]
-fn evtx(_py: Python, m: &PyModule) -> PyResult<()> {
+fn evtx(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyEvtxParser>()?;
     m.add_class::<PyRecordsIterator>()?;
 
