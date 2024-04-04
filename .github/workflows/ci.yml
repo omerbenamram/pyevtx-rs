@@ -10,9 +10,9 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Checkout Rust EVTX (for samples)
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         repository: omerbenamram/evtx
         path: evtx-rs
@@ -29,13 +29,10 @@ jobs:
       env:
         RUSTFLAGS: "-Cprofile-generate=${{ github.workspace }}/pgo-data"
     - name: Install Rust
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: stable
-        profile: minimal
-        override: true
         target: x86_64-unknown-linux-gnu
-        components: llvm-tools-preview
+        components: llvm-tools
 
     - name: PGO optimize
       run: |
@@ -69,7 +66,7 @@ jobs:
   linux-arm64:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
@@ -88,7 +85,7 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: messense/maturin-action@v1
       with:
         command: build
@@ -103,9 +100,9 @@ jobs:
     - run: pytest
 
   macos:
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: messense/maturin-action@v1
       with:
         command: build
@@ -119,15 +116,62 @@ jobs:
     - run: pip install --no-index --find-links ./dist evtx
     - run: pytest
 
-  macos-m1:
-    runs-on: macos-latest
+  macos-aarch64:
+    runs-on: macos-14
     steps:
-    - uses: actions/checkout@v2
-    - uses: messense/maturin-action@v1
+    - uses: actions/checkout@v4
+    - name: Checkout Rust EVTX (for samples)
+      uses: actions/checkout@v4
+      with:
+        repository: omerbenamram/evtx
+        path: evtx-rs
+
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Build instrumentation wheels
+      uses: messense/maturin-action@v1
+      with:
+        manylinux: auto
+        command: build
+        args: --release -o dist
+      env:
+        RUSTFLAGS: "-Cprofile-generate=${{ github.workspace }}/pgo-data"
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        target: aarch64-apple-darwin
+        components: llvm-tools
+
+    - name: Install Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+    - name: PGO optimize
+      run: |
+        PATH=$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/:$PATH
+        pip install --no-index --find-links ./dist evtx
+        echo "Running instrumented binary"
+        sudo mkdir -p $PWD/pgo-data
+        sudo chmod -R 777 $PWD/pgo-data
+        for i in $(find $PWD/evtx-rs/samples -name "*.evtx"); do
+            echo "Processing $i"
+            python scripts/evtx_dump.py $i 1>/dev/null
+        done
+        echo "Merging profile data"
+        llvm-profdata merge -o $PWD/pgo-data/merged.profdata $PWD/pgo-data
+    
+    - name: Build Optimized Wheels
+      uses: messense/maturin-action@v1
       with:
         command: build
-        target: aarch64-apple-darwin
-        args: --release -o dist --zig
+        args: --release -o dist
+      env:
+        RUSTFLAGS: "-Cprofile-use=${{ github.workspace }}/pgo-data/merged.profdata"
+  
     - name: Upload wheels
       uses: actions/upload-artifact@v2
       with:
@@ -138,7 +182,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: "startsWith(github.ref, 'refs/tags/')"
-    needs: [ macos, windows, linux, macos-m1, linux-arm64 ]
+    needs: [ macos, windows, linux, macos-aarch64, linux-arm64 ]
     steps:
       - uses: actions/download-artifact@v2
         with:
