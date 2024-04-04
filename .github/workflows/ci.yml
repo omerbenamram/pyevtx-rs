@@ -177,6 +177,9 @@ jobs:
       with:
         name: wheels
         path: dist
+    - run: pip install -U pytest
+    - run: pip install --no-index --find-links ./dist evtx
+    - run: pytest
 
   release:
     name: Release
