@@ -103,17 +103,26 @@ jobs:
     runs-on: macos-13
     steps:
     - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'  # Specify the Python version explicitly
     - uses: messense/maturin-action@v1
       with:
         command: build
-        args: --release -o dist --target universal2-apple-darwin
+        args: --release -o dist
+    - name: List dist directory
+      run: ls -l dist
     - name: Upload wheels
       uses: actions/upload-artifact@v2
       with:
         name: wheels
         path: dist
     - run: pip install -U pytest
-    - run: pip install --no-index --find-links ./dist evtx
+    - name: Install evtx
+      run: |
+        pip install --no-index --find-links ./dist evtx
+        pip list  # List installed packages
     - run: pytest
 
   macos-aarch64:
