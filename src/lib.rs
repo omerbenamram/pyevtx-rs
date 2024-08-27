@@ -22,13 +22,13 @@ use pyo3_file::PyFileLikeObject;
 use std::error::Error;
 use std::fs::File;
 use std::io;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek};
 use std::sync::Arc;
 use std::vec::IntoIter;
 
 pub trait ReadSeek: Read + Seek {
     fn tell(&mut self) -> io::Result<u64> {
-        self.seek(SeekFrom::Current(0))
+        self.stream_position()
     }
 }
 
@@ -147,6 +147,7 @@ pub struct PyEvtxParser {
 #[pymethods]
 impl PyEvtxParser {
     #[new]
+    #[pyo3(signature = (path_or_file_like, number_of_threads=None, ansi_codec=None))]
     fn new(
         path_or_file_like: PyObject,
         number_of_threads: Option<usize>,
@@ -253,13 +254,13 @@ impl PyEvtxParser {
     }
 }
 
-fn record_to_pydict(record: SerializedEvtxRecord<String>, py: Python) -> PyResult<&PyDict> {
+fn record_to_pydict(record: SerializedEvtxRecord<String>, py: Python) -> PyResult<Bound<'_, PyDict>> {
     let pyrecord = PyDict::new_bound(py);
 
     pyrecord.set_item("event_record_id", record.event_record_id)?;
     pyrecord.set_item("timestamp", format!("{}", record.timestamp))?;
     pyrecord.set_item("data", record.data)?;
-    Ok(pyrecord.into_gil_ref())
+    Ok(pyrecord)
 }
 
 fn record_to_pyobject(
