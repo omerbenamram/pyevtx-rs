@@ -17,5 +17,4 @@ evtx_rs = { version = "0.8.3", default-features = false, features = [
 ], package = "evtx" }
 encoding = "0.2"
 pyo3 = { version = "0.22.2", features = ["extension-module", "abi3-py37"] }
-# pyo3-file = "0.8.0"
-pyo3-file = { path = "../pyo3-file" }
+pyo3-file = "0.9.0"
