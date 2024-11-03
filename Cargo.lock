@@ -269,9 +269,9 @@ dependencies = [
 
 [[package]]
 name = "evtx"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2eaa12db61bdb107becc6f8db2f28390eb791394ea8cbacd2f5f85cead2371df"
+checksum = "3f1a22a16bc3030e9f443bdc74d43af77e1f21a84bc21cdf86287bcb2c64f7fa"
 dependencies = [
  "bitflags 2.6.0",
  "byteorder",
