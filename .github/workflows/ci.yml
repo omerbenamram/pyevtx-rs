@@ -82,6 +82,47 @@ jobs:
         name: wheels
         path: dist
 
+  linux-aarch64-musl:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: aarch64-unknown-linux-musl
+    - uses: messense/maturin-action@v1
+      with:
+        command: build
+        args: --release -o dist --zig --target aarch64-unknown-linux-musl
+    - name: Upload wheels
+      uses: actions/upload-artifact@v2
+      with:
+        name: wheels
+        path: dist
+
+  linux-x86_64-musl:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: x86_64-unknown-linux-musl
+    - uses: messense/maturin-action@v1
+      with:
+        command: build
+        args: --release -o dist --zig --target x86_64-unknown-linux-musl
+    - name: Upload wheels
+      uses: actions/upload-artifact@v2
+      with:
+        name: wheels
+        path: dist
+    - run: pip install -U pytest
+    - run: pip install --no-index --find-links ./dist evtx
+    - run: pytest
+
   windows:
     runs-on: windows-latest
     steps:
@@ -172,7 +213,7 @@ jobs:
         done
         echo "Merging profile data"
         llvm-profdata merge -o $PWD/pgo-data/merged.profdata $PWD/pgo-data
-    
+
     - name: Build Optimized Wheels
       uses: messense/maturin-action@v1
       with:
@@ -180,7 +221,7 @@ jobs:
         args: --release -o dist
       env:
         RUSTFLAGS: "-Cprofile-use=${{ github.workspace }}/pgo-data/merged.profdata"
-  
+
     - name: Upload wheels
       uses: actions/upload-artifact@v2
       with:
