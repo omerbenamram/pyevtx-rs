@@ -55,9 +55,9 @@ jobs:
       env:
         RUSTFLAGS: "-Cprofile-use=${{ github.workspace }}/pgo-data/merged.profdata"
     - name: Upload wheels
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
-        name: wheels
+        name: wheels-linux
         path: dist
     - run: pip install -U pytest
     - run: pip install --no-index --find-links ./dist evtx
@@ -77,9 +77,9 @@ jobs:
         command: build
         args: --release -o dist --zig --target aarch64-unknown-linux-gnu
     - name: Upload wheels
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
-        name: wheels
+        name: wheels-linux-arm64
         path: dist
 
   linux-aarch64-musl:
@@ -96,9 +96,9 @@ jobs:
         command: build
         args: --release -o dist --zig --target aarch64-unknown-linux-musl
     - name: Upload wheels
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
-        name: wheels
+        name: wheels-linux-aarch64-musl
         path: dist
 
   linux-x86_64-musl:
@@ -115,9 +115,9 @@ jobs:
         command: build
         args: --release -o dist --zig --target x86_64-unknown-linux-musl
     - name: Upload wheels
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
-        name: wheels
+        name: wheels-linux-x86_64-musl
         path: dist
     - run: pip install -U pytest
     - run: pip install --no-index --find-links ./dist evtx
@@ -132,9 +132,9 @@ jobs:
         command: build
         args: --release -o dist
     - name: Upload wheels
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
-        name: wheels
+        name: wheels-windows
         path: dist
     - run: pip install -U pytest
     - run: pip install --no-index --find-links ./dist evtx
@@ -155,9 +155,9 @@ jobs:
     - name: List dist directory
       run: ls -l dist
     - name: Upload wheels
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
-        name: wheels
+        name: wheels-macos
         path: dist
     - run: pip install -U pytest
     - name: Install evtx
@@ -223,9 +223,9 @@ jobs:
         RUSTFLAGS: "-Cprofile-use=${{ github.workspace }}/pgo-data/merged.profdata"
 
     - name: Upload wheels
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
-        name: wheels
+        name: wheels-macos-aarch64
         path: dist
     - run: pip install -U pytest
     - run: pip install --no-index --find-links ./dist evtx
@@ -237,9 +237,11 @@ jobs:
     if: "startsWith(github.ref, 'refs/tags/')"
     needs: [ macos, windows, linux, macos-aarch64, linux-arm64 ]
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
-          name: wheels
+          path: wheels
+          pattern: wheels-*
+          merge-multiple: true
       - name: Publish to PyPI
         uses: messense/maturin-action@v1
         env:
