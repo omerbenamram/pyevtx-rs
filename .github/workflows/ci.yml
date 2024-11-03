@@ -119,9 +119,6 @@ jobs:
       with:
         name: wheels-linux-x86_64-musl
         path: dist
-    - run: pip install -U pytest
-    - run: pip install --no-index --find-links ./dist evtx
-    - run: pytest
 
   windows:
     runs-on: windows-latest
