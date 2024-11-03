@@ -291,7 +291,7 @@ dependencies = [
 
 [[package]]
 name = "evtx_py"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "encoding",
  "evtx",
