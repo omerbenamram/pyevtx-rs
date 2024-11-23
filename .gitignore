@@ -12,3 +12,7 @@ dist
 .vscode
 .mypy_cache
 py3.10
+
+.DS_Store
+.pytest_cache
+
