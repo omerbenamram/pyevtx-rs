@@ -26,13 +26,13 @@ use std::io::{Read, Seek};
 use std::sync::Arc;
 use std::vec::IntoIter;
 
-pub trait ReadSeek: Read + Seek {
+pub trait ReadSeek: Read + Seek + Send + Sync + 'static {
     fn tell(&mut self) -> io::Result<u64> {
         self.stream_position()
     }
 }
 
-impl<T: Read + Seek> ReadSeek for T {}
+impl<T: Read + Seek + Send + Sync + 'static> ReadSeek for T {}
 
 struct PyEvtxError(EvtxError);
 
@@ -140,7 +140,7 @@ impl FileOrFileLike {
 ///                      pua-mapped-binary, iso-8859-8-i
 ///
 pub struct PyEvtxParser {
-    inner: Option<EvtxParser<Box<dyn ReadSeek + Send>>>,
+    inner: Option<EvtxParser<Box<dyn ReadSeek>>>,
     configuration: ParserSettings,
 }
 
@@ -183,9 +183,9 @@ impl PyEvtxParser {
         let boxed_read_seek = match file_or_file_like {
             FileOrFileLike::File(s) => {
                 let file = File::open(s)?;
-                Box::new(file) as Box<dyn ReadSeek + Send>
+                Box::new(file) as Box<dyn ReadSeek>
             }
-            FileOrFileLike::FileLike(f) => Box::new(f) as Box<dyn ReadSeek + Send>,
+            FileOrFileLike::FileLike(f) => Box::new(f) as Box<dyn ReadSeek>,
         };
 
         let parser = EvtxParser::from_read_seek(boxed_read_seek)
@@ -255,7 +255,7 @@ impl PyEvtxParser {
 }
 
 fn record_to_pydict(record: SerializedEvtxRecord<String>, py: Python) -> PyResult<Bound<'_, PyDict>> {
-    let pyrecord = PyDict::new_bound(py);
+    let pyrecord = PyDict::new(py);
 
     pyrecord.set_item("event_record_id", record.event_record_id)?;
     pyrecord.set_item("timestamp", format!("{}", record.timestamp))?;
@@ -269,8 +269,8 @@ fn record_to_pyobject(
 ) -> PyResult<PyObject> {
     match r {
         Ok(r) => match record_to_pydict(r, py) {
-            Ok(dict) => Ok(dict.to_object(py)),
-            Err(e) => Ok(e.to_object(py)),
+            Ok(dict) => Ok(dict.into_pyobject(py)?.into()),
+            Err(e) => Ok(e.into_pyobject(py)?.into()),
         },
         Err(e) => Err(PyEvtxError(e).into()),
     }
@@ -278,7 +278,7 @@ fn record_to_pyobject(
 
 #[pyclass]
 pub struct PyRecordsIterator {
-    inner: IntoIterChunks<Box<dyn ReadSeek + Send>>,
+    inner: IntoIterChunks<Box<dyn ReadSeek>>,
     records_iter: IntoIter<Result<SerializedEvtxRecord<String>, EvtxError>>,
     settings: Arc<ParserSettings>,
     output_format: OutputFormat,
