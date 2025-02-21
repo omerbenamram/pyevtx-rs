@@ -1,7 +1,7 @@
 [package]
 name = "evtx_py"
 description = "Python bindings for https://github.com/omerbenamram/evtx"
-version = "0.8.8"
+version = "0.8.9"
 authors = ["Omer Ben-Amram <omerbenamram@gmail.com>"]
 edition = "2018"
 license = "MIT/Apache-2.0"
@@ -12,9 +12,9 @@ name = "evtx"
 crate-type = ["cdylib"]
 
 [dependencies]
-evtx_rs = { version = "0.8.4", default-features = false, features = [
+evtx_rs = { version = "0.8.5", default-features = false, features = [
     "multithreading",
 ], package = "evtx" }
 encoding = "0.2"
-pyo3 = { version = "0.23.1", features = ["extension-module", "abi3-py37"] }
+pyo3 = { version = "0.23.4", features = ["extension-module", "abi3-py37"] }
 pyo3-file = "0.10.0"
