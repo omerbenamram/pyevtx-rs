@@ -5,6 +5,7 @@ build-backend = "maturin"
 [project]
 name = "evtx"
 requires-python = ">=3.7"
+dynamic = ["version"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -19,3 +20,4 @@ classifiers = [
 
 [project.optional-dependencies]
 test = ["pytest"]
+dev = ["jupyter"]

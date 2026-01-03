@@ -59,7 +59,7 @@ def main():
 And this will print each record as a JSON string.
 
 ```python
-from evtx.parser import PyEvtxParser
+from evtx import PyEvtxParser
 
 
 def main():
@@ -74,7 +74,7 @@ def main():
 File-like objects are also supported.
 
 ```python
-from evtx.parser import PyEvtxParser
+from evtx import PyEvtxParser
 
 
 def main():
@@ -87,4 +87,111 @@ def main():
         print(f'Event Timestamp: {record["timestamp"]}')
         print(record['data'])
         print(f'------------------------------------------')
+```
+
+### WEVT template cache (offline rendering fallback)
+
+When EVTX embedded templates are missing/corrupted, the Rust `evtx` crate can optionally fall back
+to an offline `WEVT_TEMPLATE` cache (provider resources). This Python extension exposes that cache
+as `WevtCache`.
+
+For an end-to-end walkthrough (including a synthetic PE fixture patched to contain a valid CRIM),
+see `notebooks/wevt_templates_e2e.ipynb`.
+
+```python
+from evtx import PyEvtxParser, WevtCache
+
+cache = WevtCache.load("/path/to/wevt_cache.wevtcache")
+parser = PyEvtxParser("/path/to/log.evtx", wevt_cache=cache)
+
+for record in parser.records_json():
+    print(record["event_record_id"], record["timestamp"])
+```
+
+You can also pass the `.wevtcache` path directly:
+
+```python
+from evtx import PyEvtxParser
+
+parser = PyEvtxParser("/path/to/log.evtx", wevt_cache="/path/to/wevt_cache.wevtcache")
+```
+
+### Build a cache from provider binaries (EXE/DLL/SYS)
+
+You can generate the cache directly from Python by scanning provider binaries and extracting their
+`WEVT_TEMPLATE` resources into an **in-memory** cache:
+
+```python
+from evtx import WevtCache
+
+cache = WevtCache()
+
+# Add a single provider binary (strict: raises on parse failures)
+cache.add_dll(r"C:\Windows\System32\services.exe")
+
+# Or scan directories
+cache.add_dir(r"C:\Windows\System32", recursive=True, extensions="exe,dll,sys")
+cache.add_dir(r"C:\Windows\SysWOW64", recursive=True, extensions="exe,dll,sys")
+
+# Optional: persist to disk for reuse by other tools (writes a single .wevtcache file)
+cache.dump("wevt_cache_out.wevtcache", overwrite=True)
+
+# Cache is ready to use:
+print(cache.resolve_template_guid("555908D1-A6D7-4695-8E1E-26931D2012F4", 7000, 0))
+```
+
+### End-to-end offline rendering (TemplateInstance + cache)
+
+If you have:
+
+- An offline cache file (`.wevtcache`) (from `evtx_dump extract-wevt-templates`)
+- An EVTX record that contains a `TemplateInstance` (substitution values)
+
+…you can render the record’s template offline:
+
+```python
+from evtx import WevtCache
+
+cache = WevtCache.load("/path/to/wevt_cache.wevtcache")
+
+xml = cache.render_record_xml(
+    "/path/to/log.evtx",
+    record_id=12345,
+    template_instance_index=0,
+    # Provide one of:
+    template_guid="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    # OR:
+    # provider_guid="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    # event_id=7000,
+    # version=0,
+)
+
+print(xml)
+```
+
+If you know `(provider_guid, event_id, version)` and want to look up the `template_guid` first:
+
+```python
+from evtx import WevtCache
+
+cache = WevtCache.load("/path/to/wevt_cache.wevtcache")
+template_guid = cache.resolve_template_guid(
+    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    7000,
+    0,
+)
+print(template_guid)
+```
+
+You can also render a template directly from a Python substitutions list:
+
+```python
+from evtx import WevtCache
+
+cache = WevtCache.load("/path/to/wevt_cache.wevtcache")
+xml = cache.render_template_xml(
+    "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    ["foo", 123, None, True],
+)
+print(xml)
 ```
