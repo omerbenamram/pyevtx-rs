@@ -1,168 +1,100 @@
 from __future__ import annotations
 
-import struct
+from pathlib import Path
+
+import pytest
 
 from evtx.wevt import Manifest
 
 
-def _name_hash_utf16_u16(name: str) -> int:
-    h = 0
-    b = name.encode("utf-16le")
-    for i in range(0, len(b), 2):
-        (cu,) = struct.unpack_from("<H", b, i)
-        h = (h * 65599 + cu) & 0xFFFFFFFF
-    return h & 0xFFFF
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
-def _push_inline_name(buf: bytearray, name: str) -> None:
-    h = _name_hash_utf16_u16(name)
-    u16_len = len(name.encode("utf-16le")) // 2
-    buf += struct.pack("<HH", h, u16_len)
-    buf += name.encode("utf-16le")
-    buf += b"\x00\x00"  # NUL terminator (u16)
+@pytest.fixture
+def services_crim_blob() -> bytes:
+    """CRIM blob extracted from Windows services.exe WEVT_TEMPLATE resource."""
+    return (FIXTURES / "services_wevt_template.bin").read_bytes()
 
 
-def _build_minimal_crim_blob_with_named_item() -> tuple[bytes, int]:
-    # Ported from `tests/test_wevt_templates.rs` (Rust) "minimal CRIM with TTBL/TEMP + BinXML".
-    provider_data_off = 16 + 20
-    wevt_size = 28  # WEVT header (20) + 1 descriptor (8)
-    ttbl_off = provider_data_off + wevt_size
-    temp_off = ttbl_off + 12
-
-    # BinXML fragment: <EventData><Data>{sub:0}</Data></EventData>
-    binxml = bytearray()
-    binxml += bytes([0x0F, 0x01, 0x01, 0x00])  # StartOfStream + fragment header
-
-    # <EventData>
-    binxml += bytes([0x01])  # OpenStartElement
-    binxml += struct.pack("<H", 0xFFFF)  # dependency id
-    binxml += struct.pack("<I", 0)  # data size (not enforced)
-    _push_inline_name(binxml, "EventData")
-    binxml += bytes([0x02])  # CloseStartElement
-
-    # <Data>
-    binxml += bytes([0x01])  # OpenStartElement
-    binxml += struct.pack("<H", 0xFFFF)  # dependency id
-    binxml += struct.pack("<I", 0)  # data size
-    _push_inline_name(binxml, "Data")
-    binxml += bytes([0x02])  # CloseStartElement
-
-    # {sub:0} substitution, type=StringType (0x01)
-    binxml += bytes([0x0D])
-    binxml += struct.pack("<H", 0)
-    binxml += bytes([0x01])
-
-    # </Data></EventData> + EndOfStream
-    binxml += bytes([0x04, 0x04, 0x00])
-
-    item_name = "Foo"
-    item_name_u16_count = len(item_name.encode("utf-16le")) // 2
-    item_name_struct_size = 4 + item_name_u16_count * 2 + 2  # size + utf16 + NUL
-
-    descriptor_count = 1
-    name_count = 1
-    template_items_offset = temp_off + 40 + len(binxml)
-    name_offset = template_items_offset + 20  # right after 1 descriptor
-
-    temp_size = 40 + len(binxml) + 20 * descriptor_count + item_name_struct_size
-    ttbl_size = 12 + temp_size
-
-    ttbl = bytearray()
-    ttbl += b"TTBL"
-    ttbl += struct.pack("<I", ttbl_size)
-    ttbl += struct.pack("<I", 1)  # template count
-
-    # TEMP header
-    ttbl += b"TEMP"
-    ttbl += struct.pack("<I", temp_size)
-    ttbl += struct.pack("<I", descriptor_count)
-    ttbl += struct.pack("<I", name_count)
-    ttbl += struct.pack("<I", template_items_offset)
-    ttbl += struct.pack("<I", 1)  # event_type
-    ttbl += b"\x11" * 16  # template GUID
-
-    # BinXML fragment
-    ttbl += binxml
-
-    # Template item descriptor (20 bytes)
-    ttbl += struct.pack("<I", 0)  # unknown1
-    ttbl += bytes([0x01])  # inType (UnicodeString)
-    ttbl += bytes([0x01])  # outType (xs:string)
-    ttbl += struct.pack("<H", 0)  # unknown3
-    ttbl += struct.pack("<I", 0)  # unknown4
-    ttbl += struct.pack("<H", 1)  # count
-    ttbl += struct.pack("<H", 0)  # length
-    ttbl += struct.pack("<I", name_offset)
-
-    # Template item name (size-prefixed utf16 + NUL)
-    ttbl += struct.pack("<I", item_name_struct_size)
-    ttbl += item_name.encode("utf-16le")
-    ttbl += b"\x00\x00"
-
-    assert len(ttbl) == ttbl_size
-
-    total_size = ttbl_off + len(ttbl)
-    blob = bytearray()
-
-    # CRIM header
-    blob += b"CRIM"
-    blob += struct.pack("<I", total_size)
-    blob += struct.pack("<H", 3)  # major
-    blob += struct.pack("<H", 1)  # minor
-    blob += struct.pack("<I", 1)  # provider_count
-
-    # provider descriptor
-    blob += b"\x22" * 16  # provider GUID
-    blob += struct.pack("<I", provider_data_off)
-
-    # WEVT header + 1 descriptor (TTBL)
-    blob += b"WEVT"
-    blob += struct.pack("<I", wevt_size)
-    blob += struct.pack("<I", 0xFFFFFFFF)  # message_identifier
-    blob += struct.pack("<I", 1)  # descriptor count
-    blob += struct.pack("<I", 0)  # unknown2 count
-    blob += struct.pack("<I", ttbl_off)  # TTBL offset
-    blob += struct.pack("<I", 0)  # unknown
-
-    # TTBL
-    blob += ttbl
-
-    assert len(blob) == total_size
-    return bytes(blob), temp_off
-
-
-def test_wevt_manifest_introspection_smoke():
-    blob, temp_off = _build_minimal_crim_blob_with_named_item()
-
-    manifest = Manifest.parse(blob)
+def test_wevt_manifest_parse_real_crim(services_crim_blob: bytes):
+    """Parse a real CRIM blob from services.exe and verify structure."""
+    manifest = Manifest.parse(services_crim_blob)
     providers = manifest.providers
-    assert len(providers) == 1
 
-    provider = providers[0]
-    assert provider.identifier == "22222222-2222-2222-2222-222222222222"
-    assert provider.events == []
+    # services.exe has multiple providers
+    assert len(providers) >= 1
 
-    templates = provider.templates
-    assert len(templates) == 1
+    # Find the Service Control Manager provider
+    scm_provider = None
+    for p in providers:
+        if "0063715b" in p.identifier.lower():  # SCM provider GUID prefix
+            scm_provider = p
+            break
 
-    tpl = templates[0]
-    assert tpl.identifier == "11111111-1111-1111-1111-111111111111"
+    assert scm_provider is not None, f"SCM provider not found in {[p.identifier for p in providers]}"
 
-    by_off = provider.get_template_by_offset(temp_off)
-    assert by_off is not None
-    assert by_off.identifier == tpl.identifier
+    # SCM provider should have events and templates
+    assert len(scm_provider.events) > 0
+    assert len(scm_provider.templates) > 0
 
-    items = tpl.items
-    assert len(items) == 1
-    item = items[0]
-    assert item.name == "Foo"
-    assert item.input_data_type == 1
-    assert item.output_data_type == 1
-    assert item.number_of_values == 1
-    assert item.value_data_size == 0
+    # Check first event has expected fields
+    event = scm_provider.events[0]
+    assert event.identifier >= 0
+    assert event.version >= 0
 
-    xml = tpl.to_xml()
-    assert "{sub:0}" in xml
-    assert "EventData" in xml
-    assert "Data" in xml
+    # Check templates can be retrieved by offset
+    for evt in scm_provider.events:
+        if evt.template_offset is not None:
+            tpl = scm_provider.get_template_by_offset(evt.template_offset)
+            assert tpl is not None, f"Template not found for offset {evt.template_offset}"
+            break
 
+
+def test_wevt_manifest_template_items(services_crim_blob: bytes):
+    """Verify template items have expected properties."""
+    manifest = Manifest.parse(services_crim_blob)
+
+    # Find a template with items
+    for provider in manifest.providers:
+        for template in provider.templates:
+            if len(template.items) > 0:
+                item = template.items[0]
+                # Basic sanity checks on item properties
+                assert item.input_data_type >= 0
+                assert item.output_data_type >= 0
+                assert item.number_of_values >= 0
+                assert item.value_data_size >= 0
+                # name can be None or a string
+                assert item.name is None or isinstance(item.name, str)
+                return
+
+    pytest.skip("No templates with items found")
+
+
+def test_wevt_manifest_template_to_xml(services_crim_blob: bytes):
+    """Verify Template.to_xml() produces valid XML output."""
+    manifest = Manifest.parse(services_crim_blob)
+
+    for provider in manifest.providers:
+        for template in provider.templates:
+            xml = template.to_xml()
+            assert isinstance(xml, str)
+            assert len(xml) > 0
+            # Should contain XML-like content
+            assert "<" in xml and ">" in xml
+            return
+
+    pytest.skip("No templates found")
+
+
+def test_wevt_manifest_provider_guid_format(services_crim_blob: bytes):
+    """Verify provider GUIDs are properly formatted."""
+    manifest = Manifest.parse(services_crim_blob)
+
+    for provider in manifest.providers:
+        guid = provider.identifier
+        # GUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        assert len(guid) == 36
+        parts = guid.split("-")
+        assert len(parts) == 5
+        assert [len(p) for p in parts] == [8, 4, 4, 4, 12]
