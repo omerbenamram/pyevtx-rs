@@ -19,7 +19,7 @@ To install from PyPi - `pip install evtx`
 
 ### Wheels
 
-Wheels are currently automatically built for Python 3.7+ using abi3 tag (which means they are compatible with all version from 3.7 onwards).
+Wheels are currently automatically built for Python 3.10+ using the abi3 stable ABI tag (compatible with all versions from 3.10 onwards).
 
 Supported platforms are:
   - Linux x86_64
