@@ -10,8 +10,8 @@ SAMPLES = Path(__file__).parent.parent / "samples"
 
 @pytest.fixture
 def repo_root() -> Path:
-    # .../external/pyevtx-rs/tests -> repo root
-    return Path(__file__).resolve().parents[3]
+    # .../pyevtx-rs/tests -> pyevtx-rs repo root
+    return Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
