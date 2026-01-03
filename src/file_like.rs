@@ -48,7 +48,7 @@ impl FileOrFileLike {
             }
 
             // We only need read + seek
-            match PyFileLikeObject::with_requirements(path_or_file_like, true, false, true, true) {
+            match PyFileLikeObject::with_requirements(path_or_file_like, true, false, true, false) {
                 Ok(f) => Ok(FileOrFileLike::FileLike(f)),
                 Err(e) => Err(e),
             }
