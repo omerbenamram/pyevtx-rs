@@ -31,7 +31,9 @@ def test_wevt_manifest_parse_real_crim(services_crim_blob: bytes):
             scm_provider = p
             break
 
-    assert scm_provider is not None, f"SCM provider not found in {[p.identifier for p in providers]}"
+    assert scm_provider is not None, (
+        f"SCM provider not found in {[p.identifier for p in providers]}"
+    )
 
     # SCM provider should have events and templates
     assert len(scm_provider.events) > 0
@@ -46,7 +48,9 @@ def test_wevt_manifest_parse_real_crim(services_crim_blob: bytes):
     for evt in scm_provider.events:
         if evt.template_offset is not None:
             tpl = scm_provider.get_template_by_offset(evt.template_offset)
-            assert tpl is not None, f"Template not found for offset {evt.template_offset}"
+            assert tpl is not None, (
+                f"Template not found for offset {evt.template_offset}"
+            )
             break
 
 

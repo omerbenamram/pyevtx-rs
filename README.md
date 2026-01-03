@@ -37,8 +37,7 @@ Run `pip install -e .`
 
 ## Usage
 
-The API surface is currently fairly limited (only yields events as XML/JSON documents), but is planned to be expanded in the future.
-
+### Parsing EVTX files
 
 This will print each record as an XML string.
 
@@ -195,3 +194,58 @@ xml = cache.render_template_xml(
 )
 print(xml)
 ```
+
+### WEVT manifest introspection (`evtx.wevt`)
+
+For low-level exploration of `WEVT_TEMPLATE` resources (similar to `pyfwevt`), use the `evtx.wevt` module
+to parse raw CRIM blobs and inspect providers, events, and templates:
+
+```python
+from evtx.wevt import Manifest
+
+# Parse a CRIM blob (extracted from a PE's WEVT_TEMPLATE resource)
+with open("wevt_template.bin", "rb") as f:
+    crim_blob = f.read()
+
+manifest = Manifest.parse(crim_blob)
+
+for provider in manifest.providers:
+    print(f"Provider: {provider.identifier}")
+    print(f"  Events: {len(provider.events)}")
+    print(f"  Templates: {len(provider.templates)}")
+
+    for event in provider.events[:3]:
+        print(f"    Event {event.identifier} v{event.version}")
+        if event.template_offset:
+            tpl = provider.get_template_by_offset(event.template_offset)
+            if tpl:
+                print(f"      Template: {tpl.identifier}")
+                for item in tpl.items:
+                    print(f"        - {item.name}: in={item.input_data_type} out={item.output_data_type}")
+```
+
+Render a template's BinXML structure (with placeholder substitutions for debugging):
+
+```python
+from evtx.wevt import Manifest
+
+manifest = Manifest.parse(crim_blob)
+template = manifest.providers[0].templates[0]
+
+# Renders BinXML with {sub:N} placeholders
+xml = template.to_xml()
+print(xml)
+```
+
+#### `evtx.wevt` API
+
+| Class | Description |
+|-------|-------------|
+| `Manifest` | Parsed CRIM blob containing providers |
+| `Manifest.parse(bytes)` | Parse a raw CRIM blob |
+| `Provider` | Event provider with GUID, events, templates |
+| `Provider.get_template_by_offset(int)` | Lookup template by offset |
+| `Event` | Event definition (id, version, template_offset) |
+| `Template` | Template with GUID and items |
+| `Template.to_xml(ansi_codec=None)` | Render BinXML to XML string |
+| `TemplateItem` | Substitution slot (name, input/output types) |
