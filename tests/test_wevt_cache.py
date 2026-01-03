@@ -7,6 +7,14 @@ import pytest
 from evtx import PyEvtxParser, WevtCache
 
 
+def read_wevtcache_entry_count(path: Path) -> int:
+    data = path.read_bytes()
+    assert data[:8] == b"WEVTCACH"
+    version = int.from_bytes(data[8:12], "little")
+    assert version == 1
+    return int.from_bytes(data[12:16], "little")
+
+
 def test_wevt_cache_smoke(tmp_path: Path, small_sample: str):
     # An empty cache is valid; this is a smoke test that the API surface exists and
     # attaching it to the parser doesn't change baseline parsing behavior.
@@ -54,4 +62,29 @@ def test_wevt_cache_add_dll_is_strict(tmp_path: Path, repo_root: Path):
     out_file = tmp_path / "cache.wevtcache"
     cache.dump(out_file, overwrite=True)
     assert out_file.exists()
+    assert read_wevtcache_entry_count(out_file) == 0
 
+
+def test_wevt_cache_add_is_transactional(tmp_path: Path, repo_root: Path):
+    """Failed add_dll leaves cache unchanged (no partial state)."""
+    pe_fixture = repo_root / "tests" / "fixtures" / "wevt_template_minimal_pe.bin"
+    assert pe_fixture.exists()
+
+    cache = WevtCache()
+
+    # Verify cache is empty before
+    with pytest.raises(KeyError):
+        cache.resolve_template_guid("00000000-0000-0000-0000-000000000000", 1, 0)
+
+    # This should fail
+    with pytest.raises(RuntimeError):
+        cache.add_dll(pe_fixture)
+
+    # Cache should still be empty after failed add - no partial state
+    with pytest.raises(KeyError):
+        cache.resolve_template_guid("00000000-0000-0000-0000-000000000000", 1, 0)
+
+    # Verify dump produces empty cache
+    out_file = tmp_path / "cache.wevtcache"
+    cache.dump(out_file, overwrite=True)
+    assert read_wevtcache_entry_count(out_file) == 0

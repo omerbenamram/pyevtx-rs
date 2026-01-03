@@ -15,13 +15,13 @@ use pyo3::{
 use pyo3_stub_gen::derive::*;
 
 use evtx_rs::binxml::value_variant::BinXmlValue;
-use evtx_rs::wevt_templates::{normalize_guid, render_temp_to_xml_with_values, WevtCache};
+use evtx_rs::wevt_templates::{WevtCache, normalize_guid, render_temp_to_xml_with_values};
 use evtx_rs::{EvtxParser, ParserSettings};
 
-use crate::file_like::{path_string_from_pyany, FileOrFileLike, ReadSeek};
+use crate::file_like::{FileOrFileLike, ReadSeek, path_string_from_pyany};
 use crate::py_err::{
-    py_err_from_io_err, py_err_from_wevt_cache_error, py_err_from_wevt_cache_file_error,
-    py_err_from_wevt_extract_error, PyEvtxError,
+    PyEvtxError, py_err_from_io_err, py_err_from_wevt_cache_error,
+    py_err_from_wevt_cache_file_error, py_err_from_wevt_extract_error,
 };
 
 #[derive(Debug, Clone)]
@@ -44,7 +44,7 @@ impl PyWevtCache {
     #[new]
     fn new() -> Self {
         Self {
-            inner: Arc::new(WevtCache::in_memory()),
+            inner: Arc::new(WevtCache::new()),
             event_to_template_guid: std::collections::HashMap::new(),
             temps_by_guid: std::collections::HashMap::new(),
             resources: Vec::new(),
@@ -58,9 +58,8 @@ impl PyWevtCache {
     /// Load a WEVT template cache file (`.wevtcache`) produced by:
     /// `evtx_dump extract-wevt-templates --output cache.wevtcache ...`
     fn load(py: Python<'_>, path: Py<PyAny>) -> PyResult<Self> {
-        let path = path_string_from_pyany(&path.bind(py))?.ok_or_else(|| {
-            PyErr::new::<PyTypeError, _>("path must be a path (str or Path)")
-        })?;
+        let path = path_string_from_pyany(&path.bind(py))?
+            .ok_or_else(|| PyErr::new::<PyTypeError, _>("path must be a path (str or Path)"))?;
         let path_buf = PathBuf::from(&path);
         if path_buf.extension().and_then(|s| s.to_str()) != Some("wevtcache") {
             return Err(PyErr::new::<PyValueError, _>(
@@ -130,9 +129,8 @@ impl PyWevtCache {
     ///
     /// Dump this in-memory cache to a single `.wevtcache` file.
     fn dump(&self, py: Python<'_>, path: Py<PyAny>, overwrite: bool) -> PyResult<()> {
-        let path = path_string_from_pyany(&path.bind(py))?.ok_or_else(|| {
-            PyErr::new::<PyTypeError, _>("path must be a path (str or Path)")
-        })?;
+        let path = path_string_from_pyany(&path.bind(py))?
+            .ok_or_else(|| PyErr::new::<PyTypeError, _>("path must be a path (str or Path)"))?;
         let path_buf = PathBuf::from(&path);
         if path_buf.extension().and_then(|s| s.to_str()) != Some("wevtcache") {
             return Err(PyErr::new::<PyValueError, _>(
@@ -151,7 +149,24 @@ impl PyWevtCache {
     ///
     /// Resolve a template GUID using the cache index mapping of:
     /// (provider_guid, event_id, version) -> template_guid.
-    fn resolve_template_guid(&self, provider_guid: String, event_id: u16, version: u8) -> PyResult<String> {
+    ///
+    /// The version is required because the same (provider_guid, event_id) pair
+    /// can have different templates across schema versions.
+    ///
+    /// Example:
+    ///     >>> cache = WevtCache.from_system()
+    ///     >>> template_guid = cache.resolve_template_guid(
+    ///     ...     provider_guid="{54849625-5478-4994-a5ba-3e3b0328c30d}",
+    ///     ...     event_id=4624,
+    ///     ...     version=2
+    ///     ... )
+    ///     >>> template = cache.get_template(template_guid)
+    fn resolve_template_guid(
+        &self,
+        provider_guid: String,
+        event_id: u16,
+        version: u8,
+    ) -> PyResult<String> {
         let key = (normalize_guid(&provider_guid), event_id, version);
         self.event_to_template_guid
             .get(&key)
@@ -187,9 +202,10 @@ impl PyWevtCache {
             PyErr::new::<PyKeyError, _>(format!("template GUID `{}` not found", guid))
         })?;
 
-        Ok(render_temp_to_xml_with_values(temp.as_slice(), &values, codec, &bump).map_err(
-            PyEvtxError,
-        )?)
+        Ok(
+            render_temp_to_xml_with_values(temp.as_slice(), &values, codec, &bump)
+                .map_err(PyEvtxError)?,
+        )
     }
 
     #[pyo3(signature = (
@@ -322,31 +338,60 @@ impl PyWevtCache {
     }
 
     fn add_crim_blob(&mut self, data: Vec<u8>) -> PyResult<usize> {
+        let mut resources = Vec::new();
+        let mut event_mappings = Vec::new();
+        let mut temps = Vec::new();
+
+        Self::parse_crim_blob(data, &mut resources, &mut event_mappings, &mut temps)?;
+
+        self.commit(resources, event_mappings, &temps);
+        Ok(temps.len())
+    }
+
+    fn add_pe_file(&mut self, path: PathBuf) -> PyResult<usize> {
+        use evtx_rs::wevt_templates::extract_wevt_template_resources;
+
+        let bytes = std::fs::read(&path).map_err(|e| py_err_from_io_err(&e))?;
+        let wevt_resources =
+            extract_wevt_template_resources(&bytes).map_err(py_err_from_wevt_extract_error)?;
+
+        let mut resources = Vec::new();
+        let mut event_mappings = Vec::new();
+        let mut temps = Vec::new();
+
+        for res in wevt_resources {
+            Self::parse_crim_blob(res.data, &mut resources, &mut event_mappings, &mut temps)?;
+        }
+
+        self.commit(resources, event_mappings, &temps);
+        Ok(temps.len())
+    }
+
+    fn parse_crim_blob(
+        data: Vec<u8>,
+        resources: &mut Vec<PyWevtResource>,
+        event_mappings: &mut Vec<((String, u16, u8), String)>,
+        temps: &mut Vec<(String, Vec<u8>)>,
+    ) -> PyResult<()> {
         use evtx_rs::wevt_templates::manifest::CrimManifest;
 
         let data = Arc::new(data);
-        let manifest =
-            CrimManifest::parse(data.as_slice()).map_err(|e| PyErr::new::<PyRuntimeError, _>(format!("{e}")))?;
-
-        self.resources.push(PyWevtResource { data: Arc::clone(&data) });
-
-        // Insert templates + event->template GUID mapping.
-        let mut template_count = 0usize;
+        let manifest = CrimManifest::parse(data.as_slice())
+            .map_err(|e| PyErr::new::<PyRuntimeError, _>(format!("{e}")))?;
 
         for provider in &manifest.providers {
             let provider_guid = normalize_guid(&provider.guid.to_string());
 
             if let Some(evnt) = provider.wevt.elements.events.as_ref() {
                 for ev in &evnt.events {
-                    let template_guid = ev
+                    if let Some(tpl) = ev
                         .template_offset
                         .and_then(|off| provider.template_by_offset(off))
-                        .map(|t| normalize_guid(&t.guid.to_string()));
-                    if let Some(template_guid) = template_guid {
-                        self.event_to_template_guid.insert(
+                    {
+                        event_mappings.push((
                             (provider_guid.clone(), ev.identifier, ev.version),
-                            template_guid,
-                        );
+                            normalize_guid(&tpl.guid.to_string()),
+                        ));
                     }
                 }
             }
@@ -360,38 +405,32 @@ impl PyWevtCache {
                             "TEMP slice out of bounds while building cache",
                         ));
                     }
-                    let temp_bytes = data[start..end].to_vec();
-                    let guid = tpl.guid.to_string();
-                    self.insert_temp(&guid, Arc::new(temp_bytes));
-                    template_count = template_count.saturating_add(1);
+                    temps.push((tpl.guid.to_string(), data[start..end].to_vec()));
                 }
             }
         }
 
-        Ok(template_count)
+        resources.push(PyWevtResource { data });
+        Ok(())
     }
 
-    fn add_pe_file(&mut self, path: PathBuf) -> PyResult<usize> {
-        use evtx_rs::wevt_templates::extract_wevt_template_resources;
-
-        let bytes = std::fs::read(&path).map_err(|e| py_err_from_io_err(&e))?;
-        let resources =
-            extract_wevt_template_resources(&bytes).map_err(py_err_from_wevt_extract_error)?;
-
-        let mut template_count = 0usize;
-
-        for res in resources {
-            template_count = template_count.saturating_add(self.add_crim_blob(res.data)?);
+    fn commit(
+        &mut self,
+        resources: Vec<PyWevtResource>,
+        event_mappings: Vec<((String, u16, u8), String)>,
+        temps: &[(String, Vec<u8>)],
+    ) {
+        self.resources.extend(resources);
+        self.event_to_template_guid.extend(event_mappings);
+        for (guid, bytes) in temps {
+            self.insert_temp(guid, Arc::new(bytes.clone()));
         }
-
-        Ok(template_count)
     }
 
     fn load_wevtcache_file(&mut self, path: &Path) -> PyResult<()> {
         use evtx_rs::wevt_templates::wevtcache::{EntryKind, WevtCacheReader};
 
-        let mut reader =
-            WevtCacheReader::open(path).map_err(py_err_from_wevt_cache_file_error)?;
+        let mut reader = WevtCacheReader::open(path).map_err(py_err_from_wevt_cache_file_error)?;
         while let Some((kind, blob)) = reader
             .next_entry()
             .map_err(py_err_from_wevt_cache_file_error)?
@@ -454,7 +493,9 @@ fn collect_input_paths(
                     if recursive {
                         queue.push_back(p);
                     }
-                } else if p.is_file() && should_keep_file(&p, allowed_exts) && seen.insert(p.clone())
+                } else if p.is_file()
+                    && should_keep_file(&p, allowed_exts)
+                    && seen.insert(p.clone())
                 {
                     out_files.push(p);
                 }
@@ -583,4 +624,3 @@ fn binxml_values_from_py_list<'a>(
 
     Ok(out)
 }
-
