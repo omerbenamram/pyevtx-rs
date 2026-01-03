@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0]
+
+### Added
+
+- **`evtx.wevt` manifest introspection API** (pyfwevt-like):
+  - `Manifest.parse(crim_blob)` to parse WEVT_TEMPLATE resources from PE files
+  - `Provider`, `Event`, `Template`, `TemplateItem` classes for navigating manifest structure
+  - `Template.to_xml()` for offline BinXML rendering without event data
+- **`.wevtcache` file support**:
+  - `WevtCache` class for building, saving, and loading `.wevtcache` files
+  - `WevtCache.add_pe_file()` and `WevtCache.add_crim_blob()` for populating caches
+  - `PyEvtxParser.with_wevt_cache()` for attaching cache to enable offline message rendering
+- `py.typed` marker for PEP 561 compliance (better IDE type checking support)
+
+### Changed
+
+- Restructured as proper Python package with `evtx._native` extension module
+- Update evtx library to 0.11.0
+- Minimum Python version is now 3.10 (to match `abi3-py310` build target)
+
+### Fixed
+
+- `WevtCache.add_dll()` / `add_crim_blob()` are now transactional (all-or-nothing on error)
+- CI modernization: updated to latest GitHub Actions runners and tooling
+
 ## [0.10.0]
 
 - Update evtx library to 0.10.0 (latest).

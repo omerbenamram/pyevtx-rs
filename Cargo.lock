@@ -303,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "evtx_py"
-version = "0.8.9"
+version = "0.11.0"
 dependencies = [
  "bumpalo",
  "encoding",
