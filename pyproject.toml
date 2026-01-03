@@ -2,15 +2,26 @@
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
+[tool.maturin]
+python-source = "python"
+module-name = "evtx._native"
+
 [project]
 name = "evtx"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
+dynamic = ["version"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python",
@@ -19,3 +30,11 @@ classifiers = [
 
 [project.optional-dependencies]
 test = ["pytest"]
+dev = ["jupyter", "maturin"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "maturin",
+    "pefile>=2024.8.26",
+]
