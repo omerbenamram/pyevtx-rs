@@ -2,6 +2,10 @@
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
+[tool.maturin]
+python-source = "python"
+module-name = "evtx._native"
+
 [project]
 name = "evtx"
 requires-python = ">=3.7"
@@ -20,4 +24,7 @@ classifiers = [
 
 [project.optional-dependencies]
 test = ["pytest"]
-dev = ["jupyter"]
+dev = ["jupyter", "maturin"]
+
+[dependency-groups]
+dev = ["pytest", "maturin"]

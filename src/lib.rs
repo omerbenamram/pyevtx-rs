@@ -10,16 +10,27 @@ mod records;
 
 #[cfg(feature = "wevt_templates")]
 mod wevt_cache;
+#[cfg(feature = "wevt_templates")]
+mod wevt_manifest;
 
 use pyo3::prelude::*;
 use pyo3_stub_gen::define_stub_info_gatherer;
 
 #[pymodule]
+#[pyo3(name = "_native")]
 fn evtx(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<crate::parser::PyEvtxParser>()?;
     m.add_class::<crate::records::PyRecordsIterator>()?;
     #[cfg(feature = "wevt_templates")]
     m.add_class::<crate::wevt_cache::PyWevtCache>()?;
+    #[cfg(feature = "wevt_templates")]
+    {
+        m.add_class::<crate::wevt_manifest::PyWevtManifest>()?;
+        m.add_class::<crate::wevt_manifest::PyWevtProvider>()?;
+        m.add_class::<crate::wevt_manifest::PyWevtEvent>()?;
+        m.add_class::<crate::wevt_manifest::PyWevtTemplate>()?;
+        m.add_class::<crate::wevt_manifest::PyWevtTemplateItem>()?;
+    }
     Ok(())
 }
 

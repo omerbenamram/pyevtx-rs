@@ -5,6 +5,46 @@ import builtins
 import typing
 
 @typing.final
+class Event:
+    @property
+    def identifier(self) -> builtins.int: ...
+    @property
+    def version(self) -> builtins.int: ...
+    @property
+    def message_identifier(self) -> builtins.int: ...
+    @property
+    def template_offset(self) -> typing.Optional[builtins.int]: ...
+
+@typing.final
+class Manifest:
+    @property
+    def providers(self) -> builtins.list[Provider]: ...
+    @staticmethod
+    def parse(crim_blob: bytes) -> Manifest:
+        r"""
+        parse(crim_blob, /)
+        --
+        
+        Parse a CRIM manifest blob (the payload stored inside a `WEVT_TEMPLATE` resource).
+        """
+
+@typing.final
+class Provider:
+    @property
+    def identifier(self) -> builtins.str: ...
+    @property
+    def events(self) -> builtins.list[Event]: ...
+    @property
+    def templates(self) -> builtins.list[Template]: ...
+    def get_template_by_offset(self, offset: builtins.int) -> typing.Optional[Template]:
+        r"""
+        get_template_by_offset(self, offset, /)
+        --
+        
+        Retrieve a template by its offset (as stored in `Event.template_offset`).
+        """
+
+@typing.final
 class PyEvtxParser:
     r"""
     PyEvtxParser(self, path_or_file_like, number_of_threads=0, ansi_codec='windows-1252', /)
@@ -66,6 +106,36 @@ class PyEvtxParser:
 class PyRecordsIterator:
     def __iter__(self) -> PyRecordsIterator: ...
     def __next__(self) -> typing.Optional[typing.Any]: ...
+
+@typing.final
+class Template:
+    @property
+    def identifier(self) -> builtins.str: ...
+    @property
+    def items(self) -> builtins.list[TemplateItem]: ...
+    def to_xml(self, ansi_codec: typing.Optional[builtins.str] = None) -> builtins.str:
+        r"""
+        to_xml(self, ansi_codec=None, /)
+        --
+        
+        Render this template's TEMP BinXML to an XML string.
+        
+        This is intended for offline debugging/inspection (placeholder substitutions are rendered
+        as `{sub:N}`).
+        """
+
+@typing.final
+class TemplateItem:
+    @property
+    def input_data_type(self) -> builtins.int: ...
+    @property
+    def output_data_type(self) -> builtins.int: ...
+    @property
+    def number_of_values(self) -> builtins.int: ...
+    @property
+    def value_data_size(self) -> builtins.int: ...
+    @property
+    def name(self) -> typing.Optional[builtins.str]: ...
 
 @typing.final
 class WevtCache:
