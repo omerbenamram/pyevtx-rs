@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1]
+
+### Added
+
+- Detect Windows import collisions between `pyevtx-rs` (`evtx`) and `python-evtx`
+  (`Evtx`) and report actionable install guidance.
+- Add repo-local Zed settings so Rust format-on-save uses the language server
+  formatter.
+
+### Changed
+
+- Apply `rustfmt` to the Rust sources so editor format-on-save behavior starts
+  from a clean baseline.
+
 ## [0.11.0]
 
 ### Added
