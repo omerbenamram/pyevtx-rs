@@ -12,8 +12,8 @@ use pyo3::types::PyBytes;
 use pyo3_stub_gen::derive::*;
 
 use evtx_rs::wevt_templates::manifest::CrimManifest;
-use evtx_rs::wevt_templates::render_temp_to_xml;
 use evtx_rs::wevt_templates::normalize_guid;
+use evtx_rs::wevt_templates::render_temp_to_xml;
 use evtx_rs::ParserSettings;
 
 #[derive(Debug, Clone)]
@@ -333,7 +333,8 @@ impl PyWevtTemplate {
         }
 
         let temp_bytes = &data[start..end];
-        Ok(render_temp_to_xml(temp_bytes, codec).map_err(|e| PyErr::new::<PyRuntimeError, _>(format!("{e}")))?)
+        Ok(render_temp_to_xml(temp_bytes, codec)
+            .map_err(|e| PyErr::new::<PyRuntimeError, _>(format!("{e}")))?)
     }
 }
 
@@ -348,7 +349,8 @@ pub struct PyWevtTemplateItem {
 
 impl PyWevtTemplateItem {
     fn item(&self) -> &TemplateItemOwned {
-        &self.inner.provider(self.provider_index).templates[self.template_index].items[self.item_index]
+        &self.inner.provider(self.provider_index).templates[self.template_index].items
+            [self.item_index]
     }
 }
 
@@ -394,4 +396,3 @@ impl PyWevtTemplateItem {
         self.item().name.clone()
     }
 }
-

@@ -3,7 +3,9 @@ use std::sync::Arc;
 
 use encoding::all::encodings;
 use pyo3::prelude::*;
-use pyo3::{exceptions::PyNotImplementedError, exceptions::PyRuntimeError, exceptions::PyValueError};
+use pyo3::{
+    exceptions::PyNotImplementedError, exceptions::PyRuntimeError, exceptions::PyValueError,
+};
 use pyo3_stub_gen::derive::*;
 
 use evtx_rs::{EvtxParser, ParserSettings};
@@ -194,4 +196,3 @@ impl PyEvtxParser {
         })
     }
 }
-

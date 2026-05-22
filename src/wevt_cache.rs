@@ -15,13 +15,13 @@ use pyo3::{
 use pyo3_stub_gen::derive::*;
 
 use evtx_rs::binxml::value_variant::BinXmlValue;
-use evtx_rs::wevt_templates::{WevtCache, normalize_guid, render_temp_to_xml_with_values};
+use evtx_rs::wevt_templates::{normalize_guid, render_temp_to_xml_with_values, WevtCache};
 use evtx_rs::{EvtxParser, ParserSettings};
 
-use crate::file_like::{FileOrFileLike, ReadSeek, path_string_from_pyany};
+use crate::file_like::{path_string_from_pyany, FileOrFileLike, ReadSeek};
 use crate::py_err::{
-    PyEvtxError, py_err_from_io_err, py_err_from_wevt_cache_error,
-    py_err_from_wevt_cache_file_error, py_err_from_wevt_extract_error,
+    py_err_from_io_err, py_err_from_wevt_cache_error, py_err_from_wevt_cache_file_error,
+    py_err_from_wevt_extract_error, PyEvtxError,
 };
 
 #[derive(Debug, Clone)]

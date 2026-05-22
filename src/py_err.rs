@@ -1,5 +1,5 @@
-use std::io;
 use std::error::Error;
+use std::io;
 
 use pyo3::{
     exceptions::PyFileNotFoundError, exceptions::PyNotImplementedError, exceptions::PyOSError,
@@ -103,4 +103,3 @@ pub(crate) fn py_err_from_wevt_cache_file_error(
         E::Io { .. } => PyErr::new::<PyIOError, _>(format!("{e}")),
     }
 }
-

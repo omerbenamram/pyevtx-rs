@@ -5,8 +5,7 @@ use pyo3_file::PyFileLikeObject;
 
 use std::io::{Read, Seek};
 
-pub(crate) trait ReadSeek: Read + Seek + Send + Sync + 'static {
-}
+pub(crate) trait ReadSeek: Read + Seek + Send + Sync + 'static {}
 
 impl<T: Read + Seek + Send + Sync + 'static> ReadSeek for T {}
 
@@ -55,4 +54,3 @@ impl FileOrFileLike {
         })
     }
 }
-
