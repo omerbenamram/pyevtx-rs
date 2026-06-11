@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::io;
 
 use pyo3::{
@@ -42,21 +41,12 @@ impl From<PyEvtxError> for PyErr {
             },
             EvtxError::DeserializationError(e) => match e {
                 DeserializationError::Io(ref io) => py_err_from_io_err(io),
-                DeserializationError::IoWithContext(ref io) => match io.source() {
-                    Some(inner_io_err) => match inner_io_err.downcast_ref::<io::Error>() {
-                        Some(actual_inner_io_err) => py_err_from_io_err(actual_inner_io_err),
-                        None => PyErr::new::<PyRuntimeError, _>(format!("{e}")),
-                    },
-                    None => PyErr::new::<PyRuntimeError, _>(format!("{e}")),
-                },
-                DeserializationError::FailedToReadToken { ref source, .. } => match source.source()
-                {
-                    Some(inner_io_err) => match inner_io_err.downcast_ref::<io::Error>() {
-                        Some(actual_inner_io_err) => py_err_from_io_err(actual_inner_io_err),
-                        None => PyErr::new::<PyRuntimeError, _>(format!("{e}")),
-                    },
-                    None => PyErr::new::<PyRuntimeError, _>(format!("{e}")),
-                },
+                DeserializationError::FailedToDeserializeTemplate { ref source, .. } => {
+                    match **source {
+                        DeserializationError::Io(ref io) => py_err_from_io_err(io),
+                        _ => PyErr::new::<PyRuntimeError, _>(format!("{e}")),
+                    }
+                }
                 _ => PyErr::new::<PyRuntimeError, _>(format!("{e}")),
             },
             EvtxError::Unimplemented { .. } => {

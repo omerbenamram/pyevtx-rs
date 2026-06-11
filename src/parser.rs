@@ -81,14 +81,12 @@ impl PyEvtxParser {
                 }
             }
         } else {
-            ParserSettings::default().get_ansi_codec()
+            // evtx's default ANSI codec.
+            encoding::all::WINDOWS_1252
         };
 
-        // Setup `number_of_threads`
-        let number_of_threads = match number_of_threads {
-            Some(number) => number,
-            None => *ParserSettings::default().get_num_threads(),
-        };
+        // Setup `number_of_threads` (0 = let evtx pick, matching ParserSettings::default()).
+        let number_of_threads = number_of_threads.unwrap_or(0);
 
         let mut configuration = ParserSettings::new()
             .ansi_codec(codec)

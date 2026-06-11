@@ -32,7 +32,6 @@ struct PyWevtResource {
 #[gen_stub_pyclass]
 #[pyclass(name = "WevtCache")]
 pub struct PyWevtCache {
-    inner: Arc<WevtCache>,
     event_to_template_guid: std::collections::HashMap<(String, u16, u8), String>,
     temps_by_guid: std::collections::HashMap<String, Arc<Vec<u8>>>,
     resources: Vec<PyWevtResource>,
@@ -44,7 +43,6 @@ impl PyWevtCache {
     #[new]
     fn new() -> Self {
         Self {
-            inner: Arc::new(WevtCache::new()),
             event_to_template_guid: std::collections::HashMap::new(),
             temps_by_guid: std::collections::HashMap::new(),
             resources: Vec::new(),
@@ -333,8 +331,24 @@ impl PyWevtCache {
 impl PyWevtCache {
     fn insert_temp(&mut self, template_guid: &str, temp_bytes: Arc<Vec<u8>>) {
         let guid = normalize_guid(template_guid);
-        self.inner.insert_temp_bytes(&guid, Arc::clone(&temp_bytes));
         self.temps_by_guid.insert(guid, temp_bytes);
+    }
+
+    /// Snapshot the collected resources/templates into an `evtx_rs` cache.
+    ///
+    /// evtx 0.12 caches are populated via `&mut self` and then shared read-only, so a fresh
+    /// cache is built each time one is attached to a parser.
+    pub(crate) fn build_evtx_cache(&self) -> PyResult<Arc<WevtCache>> {
+        let mut cache = WevtCache::new();
+        for resource in &self.resources {
+            cache
+                .add_wevt_blob(resource.data.as_ref().clone())
+                .map_err(py_err_from_wevt_cache_error)?;
+        }
+        for (guid, temp) in &self.temps_by_guid {
+            cache.insert_temp_bytes(guid, temp.as_ref().clone());
+        }
+        Ok(Arc::new(cache))
     }
 
     fn add_crim_blob(&mut self, data: Vec<u8>) -> PyResult<usize> {
@@ -524,7 +538,7 @@ pub(crate) fn wevt_cache_from_pyobject(obj: Py<PyAny>) -> PyResult<Arc<WevtCache
                 ));
             }
 
-            let cache = Arc::new(WevtCache::new());
+            let mut cache = WevtCache::new();
             {
                 use evtx_rs::wevt_templates::wevtcache::{EntryKind, WevtCacheReader};
 
@@ -537,17 +551,17 @@ pub(crate) fn wevt_cache_from_pyobject(obj: Py<PyAny>) -> PyResult<Arc<WevtCache
                     match kind {
                         EntryKind::Crim => {
                             cache
-                                .add_wevt_blob(Arc::new(blob))
+                                .add_wevt_blob(blob)
                                 .map_err(py_err_from_wevt_cache_error)?;
                         }
                     }
                 }
             }
-            return Ok(cache);
+            return Ok(Arc::new(cache));
         }
 
-        if let Ok(cache) = obj.downcast_bound::<PyWevtCache>(py) {
-            return Ok(Arc::clone(&cache.borrow().inner));
+        if let Ok(cache) = obj.cast_bound::<PyWevtCache>(py) {
+            return cache.borrow().build_evtx_cache();
         }
 
         Err(PyErr::new::<PyTypeError, _>(
@@ -566,7 +580,8 @@ fn resolve_ansi_codec(ansi_codec: Option<String>) -> PyResult<encoding::Encoding
             ))),
         }
     } else {
-        Ok(ParserSettings::default().get_ansi_codec())
+        // evtx's default ANSI codec.
+        Ok(encoding::all::WINDOWS_1252)
     }
 }
 
@@ -574,7 +589,7 @@ fn binxml_values_from_py_list<'a>(
     substitutions: &Bound<'_, PyAny>,
     bump: &'a Bump,
 ) -> PyResult<Vec<BinXmlValue<'a>>> {
-    let seq = substitutions.downcast::<PySequence>()?;
+    let seq = substitutions.cast::<PySequence>()?;
     let len = seq.len()?;
     let mut out: Vec<BinXmlValue<'a>> = Vec::with_capacity(len);
 
@@ -611,7 +626,7 @@ fn binxml_values_from_py_list<'a>(
             continue;
         }
 
-        if let Ok(b) = item.downcast::<PyBytes>() {
+        if let Ok(b) = item.cast::<PyBytes>() {
             let bytes = b.as_bytes();
             out.push(BinXmlValue::BinaryType(bump.alloc_slice_copy(bytes)));
             continue;

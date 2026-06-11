@@ -17,17 +17,17 @@ pub(crate) enum FileOrFileLike {
 
 pub(crate) fn path_string_from_pyany(obj: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
     // Plain strings are valid paths.
-    if let Ok(s) = obj.downcast::<PyString>() {
+    if let Ok(s) = obj.cast::<PyString>() {
         return Ok(Some(s.to_string_lossy().to_string()));
     }
 
     // Support pathlib.Path and other os.PathLike objects.
     if obj.hasattr("__fspath__")? {
         let path = obj.call_method0("__fspath__")?;
-        if let Ok(s) = path.downcast::<PyString>() {
+        if let Ok(s) = path.cast::<PyString>() {
             return Ok(Some(s.to_string_lossy().to_string()));
         }
-        if let Ok(b) = path.downcast::<PyBytes>() {
+        if let Ok(b) = path.cast::<PyBytes>() {
             return Ok(Some(String::from_utf8_lossy(b.as_bytes()).to_string()));
         }
         return Err(PyErr::new::<PyTypeError, _>(

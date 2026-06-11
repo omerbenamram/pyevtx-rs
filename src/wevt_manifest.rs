@@ -14,7 +14,6 @@ use pyo3_stub_gen::derive::*;
 use evtx_rs::wevt_templates::manifest::CrimManifest;
 use evtx_rs::wevt_templates::normalize_guid;
 use evtx_rs::wevt_templates::render_temp_to_xml;
-use evtx_rs::ParserSettings;
 
 #[derive(Debug, Clone)]
 struct CrimHeaderOwned {
@@ -364,7 +363,8 @@ fn resolve_ansi_codec(ansi_codec: Option<String>) -> PyResult<EncodingRef> {
             ))),
         }
     } else {
-        Ok(ParserSettings::default().get_ansi_codec())
+        // evtx's default ANSI codec.
+        Ok(encoding::all::WINDOWS_1252)
     }
 }
 
