@@ -14,18 +14,18 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Checkout Rust EVTX (for samples)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: omerbenamram/evtx
           path: evtx-rs
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - name: Build instrumentation wheels
-        uses: messense/maturin-action@v1
+        uses: PyO3/maturin-action@v1
         with:
           manylinux: auto
           command: build
@@ -50,7 +50,7 @@ jobs:
           done
           echo "Merging profile data"
           llvm-profdata merge -o $PWD/pgo-data/merged.profdata $PWD/pgo-data
-      - uses: messense/maturin-action@v1
+      - uses: PyO3/maturin-action@v1
         with:
           manylinux: auto
           command: build
@@ -58,7 +58,7 @@ jobs:
         env:
           RUSTFLAGS: "-Cprofile-use=${{ github.workspace }}/pgo-data/merged.profdata"
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-linux
           path: dist
@@ -69,17 +69,17 @@ jobs:
   linux-arm64:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@v2
-      - uses: messense/maturin-action@v1
+      - uses: PyO3/maturin-action@v1
         with:
           command: build
           args: --release -o dist --zig --target aarch64-unknown-linux-gnu
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-linux-arm64
           path: dist
@@ -87,17 +87,17 @@ jobs:
   linux-aarch64-musl:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-unknown-linux-musl
       - uses: Swatinem/rust-cache@v2
-      - uses: messense/maturin-action@v1
+      - uses: PyO3/maturin-action@v1
         with:
           command: build
           args: --release -o dist --zig --target aarch64-unknown-linux-musl
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-linux-aarch64-musl
           path: dist
@@ -105,17 +105,17 @@ jobs:
   linux-x86_64-musl:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-musl
       - uses: Swatinem/rust-cache@v2
-      - uses: messense/maturin-action@v1
+      - uses: PyO3/maturin-action@v1
         with:
           command: build
           args: --release -o dist --zig --target x86_64-unknown-linux-musl
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-linux-x86_64-musl
           path: dist
@@ -123,18 +123,18 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - uses: Swatinem/rust-cache@v2
-      - uses: messense/maturin-action@v1
+      - uses: PyO3/maturin-action@v1
         with:
           command: build
           args: --release -o dist
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-windows
           path: dist
@@ -145,9 +145,9 @@ jobs:
   macos:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - name: Install Rust (universal2 targets)
@@ -155,13 +155,13 @@ jobs:
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - uses: Swatinem/rust-cache@v2
-      - uses: messense/maturin-action@v1
+      - uses: PyO3/maturin-action@v1
         with:
           command: build
           # maturin v1 uses a synthetic target triple for universal2
           args: --release -o dist --target universal2-apple-darwin
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-macos
           path: dist
@@ -172,18 +172,18 @@ jobs:
   macos-aarch64:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Checkout Rust EVTX (for samples)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: omerbenamram/evtx
           path: evtx-rs
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - name: Build instrumentation wheels
-        uses: messense/maturin-action@v1
+        uses: PyO3/maturin-action@v1
         with:
           manylinux: auto
           command: build
@@ -213,14 +213,14 @@ jobs:
           echo "Merging profile data"
           llvm-profdata merge -o $PWD/pgo-data/merged.profdata $PWD/pgo-data
       - name: Build Optimized Wheels
-        uses: messense/maturin-action@v1
+        uses: PyO3/maturin-action@v1
         with:
           command: build
           args: --release -o dist
         env:
           RUSTFLAGS: "-Cprofile-use=${{ github.workspace }}/pgo-data/merged.profdata"
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-macos-aarch64
           path: dist
@@ -243,13 +243,13 @@ jobs:
         linux-x86_64-musl,
       ]
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: wheels
           pattern: wheels-*
           merge-multiple: true
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v8.2.0
       - name: Publish to PyPI
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
