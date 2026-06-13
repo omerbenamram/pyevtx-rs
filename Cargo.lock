@@ -285,9 +285,9 @@ dependencies = [
 
 [[package]]
 name = "evtx"
-version = "0.12.1"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c0587d2a3e4cdb0ff1474b1d4a600f3fcaa79347b90314cf5b627fc81a98a72"
+checksum = "87a186db904e8dbf437db134e759e52482bdb39998a32c560f12fda986ed1ea2"
 dependencies = [
  "ahash",
  "bitflags 2.13.0",
@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "evtx_py"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "bumpalo",
  "encoding",
