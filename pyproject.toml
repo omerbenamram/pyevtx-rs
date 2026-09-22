@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin>=1.0,<2.0"]
+requires = ["maturin>=1.15,<2.0"]
 build-backend = "maturin"
 
 [tool.maturin]
@@ -31,11 +31,11 @@ classifiers = [
 
 [project.optional-dependencies]
 test = ["pytest"]
-dev = ["jupyter", "maturin"]
+dev = ["jupyter", "maturin>=1.15,<2.0"]
 
 [dependency-groups]
 dev = [
     "pytest",
-    "maturin",
+    "maturin>=1.15,<2.0",
     "pefile>=2024.8.26",
 ]
