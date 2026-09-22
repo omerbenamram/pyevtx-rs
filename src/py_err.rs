@@ -1,59 +1,61 @@
-use std::io;
+use std::{error::Error, io};
 
 use pyo3::{
     exceptions::PyFileNotFoundError, exceptions::PyNotImplementedError, exceptions::PyOSError,
     exceptions::PyRuntimeError, exceptions::PyValueError, PyErr,
 };
 
-use evtx_rs::err;
 use evtx_rs::err::{ChunkError, DeserializationError, EvtxError, InputError, SerializationError};
 
 pub(crate) struct PyEvtxError(pub(crate) EvtxError);
 
+pub(crate) fn error_message(error: &(dyn Error + 'static)) -> String {
+    let mut message = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        message.push_str(": ");
+        message.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    message
+}
+
 pub(crate) fn py_err_from_io_err(e: &io::Error) -> PyErr {
+    io_error_with_message(e, e.to_string())
+}
+
+fn io_error_with_message(e: &io::Error, message: String) -> PyErr {
     match e.kind() {
-        io::ErrorKind::NotFound => PyErr::new::<PyFileNotFoundError, _>(format!("{e}")),
-        _ => PyErr::new::<PyOSError, _>(format!("{e}")),
+        io::ErrorKind::NotFound => PyFileNotFoundError::new_err(message),
+        _ => PyOSError::new_err(message),
     }
 }
 
 impl From<PyEvtxError> for PyErr {
     fn from(err: PyEvtxError) -> Self {
+        let message = error_message(&err.0);
         match err.0 {
-            err::EvtxError::FailedToParseChunk {
-                chunk_id: _,
-                source,
-            } => match *source {
-                ChunkError::FailedToSeekToChunk(io) => py_err_from_io_err(&io),
-                other => PyErr::new::<PyRuntimeError, _>(format!("{other}")),
-            },
-            EvtxError::InputError(e) => match e {
-                InputError::FailedToOpenFile {
-                    source: inner,
-                    path: _,
-                } => py_err_from_io_err(&inner),
-            },
-            EvtxError::SerializationError(e) => match e {
-                SerializationError::Unimplemented { .. } => {
-                    PyErr::new::<PyNotImplementedError, _>(format!("{e}"))
+            EvtxError::FailedToParseChunk { source, .. } => match *source {
+                // This upstream variant does not expose the IO error through source().
+                ChunkError::FailedToSeekToChunk(io) => {
+                    io_error_with_message(&io, format!("{message}: {io}"))
                 }
-                _ => PyErr::new::<PyRuntimeError, _>(format!("{e}")),
+                _ => PyRuntimeError::new_err(message),
             },
-            EvtxError::DeserializationError(e) => match e {
-                DeserializationError::Io(ref io) => py_err_from_io_err(io),
-                DeserializationError::FailedToDeserializeTemplate { ref source, .. } => {
-                    match **source {
-                        DeserializationError::Io(ref io) => py_err_from_io_err(io),
-                        _ => PyErr::new::<PyRuntimeError, _>(format!("{e}")),
-                    }
-                }
-                _ => PyErr::new::<PyRuntimeError, _>(format!("{e}")),
-            },
-            EvtxError::Unimplemented { .. } => {
-                PyErr::new::<PyNotImplementedError, _>(format!("{}", err.0))
+            EvtxError::InputError(InputError::FailedToOpenFile { source, .. }) => {
+                io_error_with_message(&source, message)
             }
-            EvtxError::IoError(io) => py_err_from_io_err(&io),
-            _ => PyErr::new::<PyRuntimeError, _>(format!("{}", err.0)),
+            EvtxError::SerializationError(SerializationError::Unimplemented { .. })
+            | EvtxError::Unimplemented { .. } => PyNotImplementedError::new_err(message),
+            EvtxError::DeserializationError(DeserializationError::Io(io))
+            | EvtxError::IoError(io) => io_error_with_message(&io, message),
+            EvtxError::DeserializationError(
+                DeserializationError::FailedToDeserializeTemplate { source, .. },
+            ) => match *source {
+                DeserializationError::Io(io) => io_error_with_message(&io, message),
+                _ => PyRuntimeError::new_err(message),
+            },
+            _ => PyRuntimeError::new_err(message),
         }
     }
 }

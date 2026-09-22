@@ -9,7 +9,7 @@ use evtx_rs::err::EvtxError;
 use evtx_rs::{IntoIterChunks, ParserSettings, SerializedEvtxRecord};
 
 use crate::file_like::ReadSeek;
-use crate::py_err::PyEvtxError;
+use crate::py_err::{error_message, PyEvtxError};
 
 #[derive(Copy, Clone, PartialOrd, PartialEq, Eq)]
 pub(crate) enum OutputFormat {
@@ -62,8 +62,6 @@ pub struct PyRecordsIterator {
 
 impl PyRecordsIterator {
     fn next(&mut self) -> PyResult<Option<Py<PyAny>>> {
-        let mut chunk_id = 0;
-
         loop {
             if let Some(record) = self.records_iter.next() {
                 let record = Python::attach(|py| record_to_pyobject(record, py).map(Some));
@@ -71,7 +69,6 @@ impl PyRecordsIterator {
             }
 
             let chunk = self.inner.next();
-            chunk_id += 1;
 
             match chunk {
                 None => return Ok(None),
@@ -80,15 +77,16 @@ impl PyRecordsIterator {
                         return Err(PyEvtxError(e).into());
                     }
                     Ok(mut chunk) => {
+                        let first_id = chunk.header.first_event_record_id;
+                        let last_id = chunk.header.last_event_record_id;
                         let parsed_chunk = chunk.parse(self.settings.clone());
 
                         match parsed_chunk {
                             Err(e) => {
-                                return Err(PyEvtxError(EvtxError::FailedToParseChunk {
-                                    chunk_id,
-                                    source: Box::new(e),
-                                })
-                                .into());
+                                return Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
+                                    "Failed to parse chunk containing record IDs {first_id}..{last_id}: {}",
+                                    error_message(&e),
+                                )));
                             }
                             Ok(mut chunk) => {
                                 let records: Vec<_> = match self.output_format {
