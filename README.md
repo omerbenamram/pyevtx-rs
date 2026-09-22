@@ -68,7 +68,7 @@ def main():
     parser = PyEvtxParser("./samples/Security_short_selected.evtx")
     for record in parser.records():
         print(f'Event Record ID: {record["event_record_id"]}')
-        print(f'Event Timestamp: {record["timestamp"]}')
+        print(f'Record Header Timestamp: {record["timestamp"]}')
         print(record['data'])
         print(f'------------------------------------------')
 ```
@@ -84,7 +84,7 @@ def main():
     parser = PyEvtxParser("./samples/Security_short_selected.evtx")
     for record in parser.records_json():
         print(f'Event Record ID: {record["event_record_id"]}')
-        print(f'Event Timestamp: {record["timestamp"]}')
+        print(f'Record Header Timestamp: {record["timestamp"]}')
         print(record['data'])
         print(f'------------------------------------------')
 ```
@@ -102,10 +102,41 @@ def main():
     parser = PyEvtxParser(a)
     for record in parser.records_json():
         print(f'Event Record ID: {record["event_record_id"]}')
-        print(f'Event Timestamp: {record["timestamp"]}')
+        print(f'Record Header Timestamp: {record["timestamp"]}')
         print(record['data'])
         print(f'------------------------------------------')
 ```
+
+### Record timestamps and event timestamps
+
+Each result contains two independently stored timestamps:
+
+- `record["timestamp"]` is the **EVTX record-header timestamp**, decoded from the
+  header's Windows FILETIME value and formatted in UTC.
+- `Event/System/TimeCreated/@SystemTime` is part of the **event payload** in
+  `record["data"]`. Windows defines it as the time the event was logged; see the
+  [Windows event schema](https://learn.microsoft.com/en-us/windows/win32/wes/eventschema-timecreated-systempropertiestype-element).
+
+Use `TimeCreated` when comparing the event time shown by Event Viewer. Its UI may
+display local time, so normalize time zones before comparing. In the default JSON
+format, read both values like this:
+
+```python
+import json
+from evtx import PyEvtxParser
+
+record = next(PyEvtxParser("./samples/Security_short_selected.evtx").records_json())
+event = json.loads(record["data"])
+header_time = record["timestamp"]
+event_time = event["Event"]["System"]["TimeCreated"]["#attributes"]["SystemTime"]
+print(header_time, event_time)
+```
+
+The parser does not derive one timestamp from the other or apply a fixed delay.
+They can differ in value and fractional-second precision because they come from
+different fields. A gap such as 30 seconds cannot be attributed to buffering or
+another producer behavior without examining the original event. Keep both values
+when that distinction matters; do not overwrite one to make them agree.
 
 ### WEVT template cache (offline rendering fallback)
 
