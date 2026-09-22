@@ -88,6 +88,29 @@ def main():
         print(f'------------------------------------------')
 ```
 
+### Handling malformed records
+
+By default, a malformed record or chunk raises an exception with its available
+record/chunk context and underlying cause. Records are not silently dropped.
+A normal `for` loop stops on that exception; the iterator can still be advanced
+if you catch it and call `next()` again.
+
+To keep processing recoverable parse failures automatically, opt in explicitly:
+
+```python
+from evtx import PyEvtxParser
+
+parser = PyEvtxParser("log.evtx", skip_errors=True)
+for record in parser.records_json():
+    print(record["event_record_id"])
+```
+
+Each skipped error emits a `RuntimeWarning`, including the parser's diagnostic
+message. If a chunk cannot be parsed, all its records are skipped. Python I/O
+exceptions still propagate, and warnings configured as errors still stop the
+iteration. Use Python's `warnings` module to capture these diagnostics; the
+iterator always yields record dictionaries, never exception objects.
+
 ### WEVT template cache (offline rendering fallback)
 
 When EVTX embedded templates are missing/corrupted, the Rust `evtx` crate can optionally fall back
