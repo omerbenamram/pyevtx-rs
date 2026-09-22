@@ -42,13 +42,8 @@ fn record_to_pyobject(
     r: Result<SerializedEvtxRecord<String>, EvtxError>,
     py: Python<'_>,
 ) -> PyResult<Py<PyAny>> {
-    match r {
-        Ok(r) => match record_to_pydict(r, py) {
-            Ok(dict) => Ok(dict.into_pyobject(py)?.into()),
-            Err(e) => Ok(e.into_pyobject(py)?.into()),
-        },
-        Err(e) => Err(PyEvtxError(e).into()),
-    }
+    let record = r.map_err(PyEvtxError)?;
+    Ok(record_to_pydict(record, py)?.into_any().unbind())
 }
 
 #[gen_stub_pyclass]
@@ -58,14 +53,35 @@ pub struct PyRecordsIterator {
     pub(crate) records_iter: IntoIter<Result<SerializedEvtxRecord<String>, EvtxError>>,
     pub(crate) settings: Arc<ParserSettings>,
     pub(crate) output_format: OutputFormat,
+    pub(crate) skip_errors: bool,
 }
 
 impl PyRecordsIterator {
-    fn next(&mut self) -> PyResult<Option<Py<PyAny>>> {
+    fn next(&mut self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        loop {
+            match self.next_record(py) {
+                Err(error)
+                    if self.skip_errors
+                        && error.is_instance_of::<pyo3::exceptions::PyRuntimeError>(py) =>
+                {
+                    py.import("warnings")?.call_method1(
+                        "warn",
+                        (
+                            format!("Skipping EVTX data: {error}"),
+                            py.get_type::<pyo3::exceptions::PyRuntimeWarning>(),
+                            1,
+                        ),
+                    )?;
+                }
+                result => return result,
+            }
+        }
+    }
+
+    fn next_record(&mut self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         loop {
             if let Some(record) = self.records_iter.next() {
-                let record = Python::attach(|py| record_to_pyobject(record, py).map(Some));
-                return record;
+                return record_to_pyobject(record, py).map(Some);
             }
 
             let chunk = self.inner.next();
@@ -89,18 +105,21 @@ impl PyRecordsIterator {
                                 )));
                             }
                             Ok(mut chunk) => {
-                                let records: Vec<_> = match self.output_format {
-                                    OutputFormat::XML => chunk
-                                        .iter()
-                                        .filter_map(|r| r.ok())
-                                        .map(|r| r.into_xml())
-                                        .collect(),
-                                    OutputFormat::JSON => chunk
-                                        .iter()
-                                        .filter_map(|r| r.ok())
-                                        .map(|r| r.into_json())
-                                        .collect(),
-                                };
+                                let records: Vec<_> = chunk
+                                    .iter()
+                                    .map(|record| {
+                                        let record = record?;
+                                        let record_id = record.event_record_id;
+                                        let rendered = match self.output_format {
+                                            OutputFormat::XML => record.into_xml(),
+                                            OutputFormat::JSON => record.into_json(),
+                                        };
+                                        rendered.map_err(|source| EvtxError::FailedToParseRecord {
+                                            record_id,
+                                            source: Box::new(source),
+                                        })
+                                    })
+                                    .collect();
 
                                 self.records_iter = records.into_iter();
                             }
@@ -119,7 +138,7 @@ impl PyRecordsIterator {
         slf
     }
 
-    fn __next__(mut slf: PyRefMut<'_, Self>) -> PyResult<Option<Py<PyAny>>> {
-        slf.next()
+    fn __next__(mut slf: PyRefMut<'_, Self>, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        slf.next(py)
     }
 }

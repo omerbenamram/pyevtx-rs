@@ -82,32 +82,26 @@ class PyEvtxParser:
                          windows-949, euc-jp, windows-31j, gbk, gb18030, hz, big5-2003,
                          pua-mapped-binary, iso-8859-8-i
     """
-    def __new__(cls, path_or_file_like: typing.Any, number_of_threads: typing.Optional[builtins.int] = None, ansi_codec: typing.Optional[builtins.str] = None, validate_checksums: typing.Optional[builtins.bool] = None, separate_json_attributes: typing.Optional[builtins.bool] = None, indent: typing.Optional[builtins.bool] = None, wevt_cache: typing.Optional[typing.Any] = None) -> PyEvtxParser: ...
+    def __new__(cls, path_or_file_like: typing.Any, number_of_threads: typing.Optional[builtins.int] = None, ansi_codec: typing.Optional[builtins.str] = None, validate_checksums: typing.Optional[builtins.bool] = None, separate_json_attributes: typing.Optional[builtins.bool] = None, indent: typing.Optional[builtins.bool] = None, wevt_cache: typing.Optional[typing.Any] = None, skip_errors: builtins.bool = False) -> PyEvtxParser: ...
     def records(self) -> PyRecordsIterator:
         r"""
         records(self, /)
         --
         
-        Returns an iterator that yields either an XML record, or a `RuntimeError` object.
-        
-        Note - Iterating over records can raise a `RuntimeError` if the parser encounters an invalid record.
-               If using a regular for-loop, this could abruptly terminate the iteration.
-        
-               It is recommended to wrap this iterator with a logic that will continue iteration
-               in case an exception object is returned.
+        Returns an iterator of XML records. Parse errors raise `RuntimeError` by default.
+        With `skip_errors=True`, recoverable parse errors emit `RuntimeWarning` and
+        iteration continues. Python warnings filters can promote these warnings to errors.
+        Exceptions are never yielded as records.
         """
     def records_json(self) -> PyRecordsIterator:
         r"""
         records_json(self, /)
         --
         
-        Returns an iterator that yields either a JSON record, or a `RuntimeError` object.
-        
-        Note - Iterating over records can raise a `RuntimeError` if the parser encounters an invalid record.
-               If using a regular for-loop, this could abruptly terminate the iteration.
-        
-               It is recommended to wrap this iterator with a logic that will continue iteration
-               in case an exception object is returned.
+        Returns an iterator of JSON records. Parse errors raise `RuntimeError` by default.
+        With `skip_errors=True`, recoverable parse errors emit `RuntimeWarning` and
+        iteration continues. Python warnings filters can promote these warnings to errors.
+        Exceptions are never yielded as records.
         """
     def __iter__(self) -> PyRecordsIterator: ...
     def __next__(self) -> typing.Optional[typing.Any]: ...
