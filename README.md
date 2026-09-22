@@ -35,6 +35,25 @@ This requires a Rust compiler and a recent enough Setuptools and Pip.
 
 Run `pip install -e .`
 
+### Free-threaded Python 3.14
+
+Free-threaded CPython 3.14 requires a version-specific `cp314-cp314t` wheel;
+the ordinary `cp310-abi3` wheels are for GIL-enabled CPython. The wheel pipeline
+builds both variants for every supported target and tests free-threaded builds
+without forcing the GIL off. Importing `evtx` must leave the GIL disabled.
+
+For a source build, use a free-threaded Python environment and Maturin 1.15 or
+newer (the build-system requirement installs it automatically with pip):
+
+```sh
+python3.14t -m pip install .
+```
+
+Concurrent threads should use independent parsers and file handles. Do not call
+`next()` concurrently on the same mutable iterator or modify a shared file-like
+object while parsing it. The tests exercise parallel XML/JSON parsing from paths
+and in-memory streams while Python garbage collection runs.
+
 ## Usage
 
 ### Parsing EVTX files
