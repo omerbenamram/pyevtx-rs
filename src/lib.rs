@@ -16,7 +16,7 @@ mod wevt_manifest;
 use pyo3::prelude::*;
 use pyo3_stub_gen::define_stub_info_gatherer;
 
-#[pymodule]
+#[pymodule(gil_used = false)]
 #[pyo3(name = "_native")]
 fn evtx(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<crate::parser::PyEvtxParser>()?;

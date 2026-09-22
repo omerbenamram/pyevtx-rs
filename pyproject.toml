@@ -1,4 +1,6 @@
 [build-system]
+# 1.14 finds free-threaded interpreters and understands PyO3 0.29 abi3t;
+# 1.15 fixes the abi3t module entrypoint check.
 requires = ["maturin>=1.15,<2.0"]
 build-backend = "maturin"
 

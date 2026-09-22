@@ -197,6 +197,8 @@ jobs:
 
   macos:
     runs-on: macos-15
+    # universal2 cross-compiles the x86_64 half; PyO3 needs the version (and
+    # the trailing 't') since it cannot run that interpreter.
     env:
       PYO3_CROSS_PYTHON_VERSION: ${{ matrix.python }}
     strategy:
