@@ -13,6 +13,10 @@ concurrency:
 jobs:
   linux:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.14t"]
     steps:
       - uses: actions/checkout@v6
       - name: Checkout Rust EVTX (for samples)
@@ -23,13 +27,14 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python }}
       - name: Build instrumentation wheels
         uses: PyO3/maturin-action@v1
         with:
+          version: "1.15.0"
           manylinux: auto
           command: build
-          args: --release -o dist
+          args: --release --locked -o dist --interpreter python${{ matrix.python }}
         env:
           RUSTFLAGS: "-Cprofile-generate=${{ github.workspace }}/pgo-data"
       - name: Install Rust
@@ -52,15 +57,16 @@ jobs:
           llvm-profdata merge -o $PWD/pgo-data/merged.profdata $PWD/pgo-data
       - uses: PyO3/maturin-action@v1
         with:
+          version: "1.15.0"
           manylinux: auto
           command: build
-          args: --release -o dist
+          args: --release --locked -o dist --interpreter python${{ matrix.python }}
         env:
           RUSTFLAGS: "-Cprofile-use=${{ github.workspace }}/pgo-data/merged.profdata"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: wheels-linux
+          name: wheels-linux-${{ matrix.python }}
           path: dist
       - run: pip install -U pytest
       - run: pip install --no-index --find-links ./dist evtx
@@ -68,75 +74,110 @@ jobs:
 
   linux-arm64:
     runs-on: ubuntu-latest
+    env:
+      PYO3_CROSS_PYTHON_VERSION: ${{ matrix.python }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.14t"]
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@v2
       - uses: PyO3/maturin-action@v1
         with:
+          version: "1.15.0"
           command: build
-          args: --release -o dist --zig --target aarch64-unknown-linux-gnu
+          args: --release --locked -o dist --interpreter python${{ matrix.python }} --zig --target aarch64-unknown-linux-gnu
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: wheels-linux-arm64
+          name: wheels-linux-arm64-${{ matrix.python }}
           path: dist
 
   linux-aarch64-musl:
     runs-on: ubuntu-latest
+    env:
+      PYO3_CROSS_PYTHON_VERSION: ${{ matrix.python }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.14t"]
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-unknown-linux-musl
       - uses: Swatinem/rust-cache@v2
       - uses: PyO3/maturin-action@v1
         with:
+          version: "1.15.0"
           command: build
-          args: --release -o dist --zig --target aarch64-unknown-linux-musl
+          args: --release --locked -o dist --interpreter python${{ matrix.python }} --zig --target aarch64-unknown-linux-musl
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: wheels-linux-aarch64-musl
+          name: wheels-linux-aarch64-musl-${{ matrix.python }}
           path: dist
 
   linux-x86_64-musl:
     runs-on: ubuntu-latest
+    env:
+      PYO3_CROSS_PYTHON_VERSION: ${{ matrix.python }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.14t"]
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-musl
       - uses: Swatinem/rust-cache@v2
       - uses: PyO3/maturin-action@v1
         with:
+          version: "1.15.0"
           command: build
-          args: --release -o dist --zig --target x86_64-unknown-linux-musl
+          args: --release --locked -o dist --interpreter python${{ matrix.python }} --zig --target x86_64-unknown-linux-musl
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: wheels-linux-x86_64-musl
+          name: wheels-linux-x86_64-musl-${{ matrix.python }}
           path: dist
 
   windows:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.14t"]
     steps:
       - uses: actions/checkout@v6
       - name: Install Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python }}
       - uses: Swatinem/rust-cache@v2
       - uses: PyO3/maturin-action@v1
         with:
+          version: "1.15.0"
           command: build
-          args: --release -o dist
+          args: --release --locked -o dist --interpreter python${{ matrix.python }}
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: wheels-windows
+          name: wheels-windows-${{ matrix.python }}
           path: dist
       - run: pip install -U pytest
       - run: pip install --no-index --find-links ./dist evtx
@@ -144,12 +185,18 @@ jobs:
 
   macos:
     runs-on: macos-15
+    env:
+      PYO3_CROSS_PYTHON_VERSION: ${{ matrix.python }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.14t"]
     steps:
       - uses: actions/checkout@v6
       - name: Install Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python }}
       - name: Install Rust (universal2 targets)
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -157,13 +204,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: PyO3/maturin-action@v1
         with:
+          version: "1.15.0"
           command: build
           # maturin v1 uses a synthetic target triple for universal2
-          args: --release -o dist --target universal2-apple-darwin
+          args: --release --locked -o dist --interpreter python${{ matrix.python }} --target universal2-apple-darwin
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: wheels-macos
+          name: wheels-macos-${{ matrix.python }}
           path: dist
       - run: pip install -U pytest
       - run: pip install --no-index --find-links ./dist evtx
@@ -171,6 +219,10 @@ jobs:
 
   macos-aarch64:
     runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.14t"]
     steps:
       - uses: actions/checkout@v6
       - name: Checkout Rust EVTX (for samples)
@@ -181,13 +233,14 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python }}
       - name: Build instrumentation wheels
         uses: PyO3/maturin-action@v1
         with:
+          version: "1.15.0"
           manylinux: auto
           command: build
-          args: --release -o dist
+          args: --release --locked -o dist --interpreter python${{ matrix.python }}
         env:
           RUSTFLAGS: "-Cprofile-generate=${{ github.workspace }}/pgo-data"
       - name: Install Rust
@@ -215,14 +268,15 @@ jobs:
       - name: Build Optimized Wheels
         uses: PyO3/maturin-action@v1
         with:
+          version: "1.15.0"
           command: build
-          args: --release -o dist
+          args: --release --locked -o dist --interpreter python${{ matrix.python }}
         env:
           RUSTFLAGS: "-Cprofile-use=${{ github.workspace }}/pgo-data/merged.profdata"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: wheels-macos-aarch64
+          name: wheels-macos-aarch64-${{ matrix.python }}
           path: dist
       - run: pip install -U pytest
       - run: pip install --no-index --find-links ./dist evtx
