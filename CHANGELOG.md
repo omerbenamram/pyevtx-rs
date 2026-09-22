@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0 - 2026-09-22]
+
+### Changed
+
+- Update the Rust parser to `evtx 0.12.3`, including faster record rendering and
+  malformed-input handling fixes.
+- Update to PyO3 0.29.2, pyo3-file 0.17.0, and pyo3-stub-gen 0.23.0.
+- Keep the existing Python API and Python 3.10+ stable-ABI wheel support.
+
 ## [0.11.1]
 
 ### Added

@@ -285,9 +285,9 @@ dependencies = [
 
 [[package]]
 name = "evtx"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87a186db904e8dbf437db134e759e52482bdb39998a32c560f12fda986ed1ea2"
+checksum = "cd0613effe784f87e90f8501970447671b74d57594c29e12514239791277c51c"
 dependencies = [
  "ahash",
  "bitflags 2.13.0",
@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "evtx_py"
-version = "0.12.1"
+version = "0.13.0"
 dependencies = [
  "bumpalo",
  "encoding",
@@ -742,9 +742,9 @@ dependencies = [
 
 [[package]]
 name = "numpy"
-version = "0.28.0"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "778da78c64ddc928ebf5ad9df5edf0789410ff3bdbf3619aed51cd789a6af1e2"
+checksum = "6a5b15d63a5ff39e378daed0e1340d3a5964703ea9712eb09a0dc66fade996f4"
 dependencies = [
  "libc",
  "ndarray",
@@ -903,9 +903,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3"
-version = "0.28.3"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91fd8e38a3b50ed1167fb981cd6fd60147e091784c427b8f7183a7ee32c31c12"
+checksum = "4688ddedf473e32662b9b067670129a8afb8c18e351482c70d62ba4a88171e8b"
 dependencies = [
  "libc",
  "once_cell",
@@ -917,18 +917,18 @@ dependencies = [
 
 [[package]]
 name = "pyo3-build-config"
-version = "0.28.3"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e368e7ddfdeb98c9bca7f8383be1648fd84ab466bf2bc015e94008db6d35611e"
+checksum = "f41027e41b4bd03f6e60f9f417fe24a6341a6bb744edd62b6f709f2a52ea30e9"
 dependencies = [
  "target-lexicon",
 ]
 
 [[package]]
 name = "pyo3-ffi"
-version = "0.28.3"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f29e10af80b1f7ccaf7f69eace800a03ecd13e883acfacc1e5d0988605f651e"
+checksum = "e591a95526fead067432c3b3a33fc74770b87b1e04e73671090d9c2055a2b327"
 dependencies = [
  "libc",
  "pyo3-build-config",
@@ -936,18 +936,18 @@ dependencies = [
 
 [[package]]
 name = "pyo3-file"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfa5adcebc53e144e7a27305c3586df7f0f09ceea9db34769a243291f9d6b20f"
+checksum = "8e873dd65f93e8766fa1238a3b45eb6e5b09cf72bed4b6861bf8fe740b00b50d"
 dependencies = [
  "pyo3",
 ]
 
 [[package]]
 name = "pyo3-macros"
-version = "0.28.3"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df6e520eff47c45997d2fc7dd8214b25dd1310918bbb2642156ef66a67f29813"
+checksum = "73225868fc1cd84eef2c3c230ddb91273bf1de46aeb8a4248da76d32a0924a1c"
 dependencies = [
  "proc-macro2",
  "pyo3-macros-backend",
@@ -957,22 +957,21 @@ dependencies = [
 
 [[package]]
 name = "pyo3-macros-backend"
-version = "0.28.3"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4cdc218d835738f81c2338f822078af45b4afdf8b2e33cbb5916f108b813acb"
+checksum = "571575aa3749fa6216757dd47d2a3e7ef360f329a40f0666a9fbd14889024952"
 dependencies = [
  "heck",
  "proc-macro2",
- "pyo3-build-config",
  "quote",
  "syn 2.0.117",
 ]
 
 [[package]]
 name = "pyo3-stub-gen"
-version = "0.22.3"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1242a6080f45edcfaf3be3b9968914dd47a408c5590aea22770b978f7c36ffa7"
+checksum = "a267ea4da9a831f534def7f1d8e14f581d5640d3e5af6527072724f216f4dbbf"
 dependencies = [
  "anyhow",
  "chrono",
@@ -996,9 +995,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-stub-gen-derive"
-version = "0.22.3"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd9a73abe6f57890e657c265b86805637138f83203e1a56bc156078abf215e36"
+checksum = "6573423a5e8cc43ec7565eccccbc2dd35e1fc9032d9ca404afab875429eb8cf0"
 dependencies = [
  "heck",
  "indexmap",
@@ -1676,9 +1675,9 @@ dependencies = [
 
 [[package]]
 name = "utf16-simd"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e58ccaaacb51ac3f769e61e1494a3856a0ef2e6749e19f5367a9e846f8c21168"
+checksum = "4be118d4436ac3c0d994602e970e2a06eb75eaa096a42e061d533af0ee678b8f"
 dependencies = [
  "sonic-rs",
 ]
