@@ -63,6 +63,8 @@ jobs:
           args: --release --locked -o dist --interpreter python${{ matrix.python }}
         env:
           RUSTFLAGS: "-Cprofile-use=${{ github.workspace }}/pgo-data/merged.profdata"
+      - name: Verify wheel ABI
+        run: python scripts/check_wheel_abi.py "${{ matrix.python }}"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -93,7 +95,9 @@ jobs:
         with:
           version: "1.15.0"
           command: build
-          args: --release --locked -o dist --interpreter python${{ matrix.python }} --zig --target aarch64-unknown-linux-gnu
+          args: --release --locked -o dist --interpreter python --zig --target aarch64-unknown-linux-gnu
+      - name: Verify wheel ABI
+        run: python scripts/check_wheel_abi.py "${{ matrix.python }}"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -121,7 +125,9 @@ jobs:
         with:
           version: "1.15.0"
           command: build
-          args: --release --locked -o dist --interpreter python${{ matrix.python }} --zig --target aarch64-unknown-linux-musl
+          args: --release --locked -o dist --interpreter python --zig --target aarch64-unknown-linux-musl
+      - name: Verify wheel ABI
+        run: python scripts/check_wheel_abi.py "${{ matrix.python }}"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -149,7 +155,9 @@ jobs:
         with:
           version: "1.15.0"
           command: build
-          args: --release --locked -o dist --interpreter python${{ matrix.python }} --zig --target x86_64-unknown-linux-musl
+          args: --release --locked -o dist --interpreter python --zig --target x86_64-unknown-linux-musl
+      - name: Verify wheel ABI
+        run: python scripts/check_wheel_abi.py "${{ matrix.python }}"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -173,7 +181,9 @@ jobs:
         with:
           version: "1.15.0"
           command: build
-          args: --release --locked -o dist --interpreter python${{ matrix.python }}
+          args: --release --locked -o dist --interpreter python
+      - name: Verify wheel ABI
+        run: python scripts/check_wheel_abi.py "${{ matrix.python }}"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -207,7 +217,9 @@ jobs:
           version: "1.15.0"
           command: build
           # maturin v1 uses a synthetic target triple for universal2
-          args: --release --locked -o dist --interpreter python${{ matrix.python }} --target universal2-apple-darwin
+          args: --release --locked -o dist --interpreter python --target universal2-apple-darwin
+      - name: Verify wheel ABI
+        run: python scripts/check_wheel_abi.py "${{ matrix.python }}"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -240,7 +252,7 @@ jobs:
           version: "1.15.0"
           manylinux: auto
           command: build
-          args: --release --locked -o dist --interpreter python${{ matrix.python }}
+          args: --release --locked -o dist --interpreter python
         env:
           RUSTFLAGS: "-Cprofile-generate=${{ github.workspace }}/pgo-data"
       - name: Install Rust
@@ -270,9 +282,11 @@ jobs:
         with:
           version: "1.15.0"
           command: build
-          args: --release --locked -o dist --interpreter python${{ matrix.python }}
+          args: --release --locked -o dist --interpreter python
         env:
           RUSTFLAGS: "-Cprofile-use=${{ github.workspace }}/pgo-data/merged.profdata"
+      - name: Verify wheel ABI
+        run: python scripts/check_wheel_abi.py "${{ matrix.python }}"
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
