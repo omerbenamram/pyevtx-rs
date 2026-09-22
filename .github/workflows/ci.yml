@@ -31,7 +31,7 @@ jobs:
       - name: Build instrumentation wheels
         uses: PyO3/maturin-action@v1
         with:
-          version: "1.15.0"
+          maturin-version: "v1.15.0"
           manylinux: auto
           command: build
           args: --release --locked -o dist --interpreter python${{ matrix.python }}
@@ -57,7 +57,7 @@ jobs:
           llvm-profdata merge -o $PWD/pgo-data/merged.profdata $PWD/pgo-data
       - uses: PyO3/maturin-action@v1
         with:
-          version: "1.15.0"
+          maturin-version: "v1.15.0"
           manylinux: auto
           command: build
           args: --release --locked -o dist --interpreter python${{ matrix.python }}
@@ -76,6 +76,8 @@ jobs:
 
   linux-arm64:
     runs-on: ubuntu-latest
+    # --zig runs on the host, where setup-python selects the `python` executable.
+    # PyO3 0.29 parses the trailing 't' into its free-threaded ABI flags.
     env:
       PYO3_CROSS_PYTHON_VERSION: ${{ matrix.python }}
     strategy:
@@ -93,7 +95,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: PyO3/maturin-action@v1
         with:
-          version: "1.15.0"
+          maturin-version: "v1.15.0"
           command: build
           args: --release --locked -o dist --interpreter python --zig --target aarch64-unknown-linux-gnu
       - name: Verify wheel ABI
@@ -123,7 +125,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: PyO3/maturin-action@v1
         with:
-          version: "1.15.0"
+          maturin-version: "v1.15.0"
           command: build
           args: --release --locked -o dist --interpreter python --zig --target aarch64-unknown-linux-musl
       - name: Verify wheel ABI
@@ -153,7 +155,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: PyO3/maturin-action@v1
         with:
-          version: "1.15.0"
+          maturin-version: "v1.15.0"
           command: build
           args: --release --locked -o dist --interpreter python --zig --target x86_64-unknown-linux-musl
       - name: Verify wheel ABI
@@ -179,7 +181,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: PyO3/maturin-action@v1
         with:
-          version: "1.15.0"
+          maturin-version: "v1.15.0"
           command: build
           args: --release --locked -o dist --interpreter python
       - name: Verify wheel ABI
@@ -214,7 +216,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: PyO3/maturin-action@v1
         with:
-          version: "1.15.0"
+          maturin-version: "v1.15.0"
           command: build
           # maturin v1 uses a synthetic target triple for universal2
           args: --release --locked -o dist --interpreter python --target universal2-apple-darwin
@@ -249,7 +251,7 @@ jobs:
       - name: Build instrumentation wheels
         uses: PyO3/maturin-action@v1
         with:
-          version: "1.15.0"
+          maturin-version: "v1.15.0"
           manylinux: auto
           command: build
           args: --release --locked -o dist --interpreter python
@@ -280,7 +282,7 @@ jobs:
       - name: Build Optimized Wheels
         uses: PyO3/maturin-action@v1
         with:
-          version: "1.15.0"
+          maturin-version: "v1.15.0"
           command: build
           args: --release --locked -o dist --interpreter python
         env:
