@@ -38,9 +38,10 @@ Run `pip install -e .`
 ### Free-threaded Python 3.14
 
 Free-threaded CPython 3.14 requires a version-specific `cp314-cp314t` wheel;
-the ordinary `cp310-abi3` wheels are for GIL-enabled CPython. The wheel pipeline
-builds both variants for every supported target and tests free-threaded builds
-without forcing the GIL off. Importing `evtx` must leave the GIL disabled.
+the ordinary `cp310-abi3` wheels are for GIL-enabled CPython. Releases ship both
+variants for every supported target. Importing `evtx` does not re-enable the
+GIL, and CI runs the test suite on the free-threaded wheels with the GIL
+disabled, without a `PYTHON_GIL` override.
 
 For a source build, use a free-threaded Python environment and Maturin 1.15 or
 newer (the build-system requirement installs it automatically with pip):
