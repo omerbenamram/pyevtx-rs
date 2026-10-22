@@ -18,8 +18,7 @@ evtx_rs = { git = "https://github.com/omerbenamram/evtx", branch = "claude/proje
 ], package = "evtx" }
 encoding_rs = "0.8"
 pyo3 = { version = "0.30.1", features = ["abi3-py310"] }
-# TODO: switch back to `"0.18.0"` once pyo3-file 0.18.0 (pyo3 0.30) is on crates.io.
-pyo3-file = { git = "https://github.com/omerbenamram/pyo3-file", rev = "c49ec6e" }
+pyo3-file = "0.18.0"
 serde_json = "1"
 bumpalo = "3"
 pyo3-stub-gen = "0.23"
