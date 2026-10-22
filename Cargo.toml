@@ -12,8 +12,7 @@ name = "evtx"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# TODO: switch back to `version = "0.13.0"` once evtx 0.13.0 is on crates.io.
-evtx_rs = { git = "https://github.com/omerbenamram/evtx", branch = "claude/project-thread-schqu1", default-features = false, features = [
+evtx_rs = { version = "0.13.0", default-features = false, features = [
     "multithreading",
 ], package = "evtx" }
 encoding_rs = "0.8"
