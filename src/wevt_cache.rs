@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use bumpalo::Bump;
-use encoding::all::encodings;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PySequence};
 use pyo3::{
@@ -19,6 +18,7 @@ use evtx_rs::wevt_templates::{normalize_guid, render_temp_to_xml_with_values, We
 use evtx_rs::{EvtxParser, ParserSettings};
 
 use crate::file_like::{path_string_from_pyany, FileOrFileLike, ReadSeek};
+use crate::parser::resolve_ansi_codec;
 use crate::py_err::{
     py_err_from_io_err, py_err_from_wevt_cache_error, py_err_from_wevt_cache_file_error,
     py_err_from_wevt_extract_error, PyEvtxError,
@@ -568,21 +568,6 @@ pub(crate) fn wevt_cache_from_pyobject(obj: Py<PyAny>) -> PyResult<Arc<WevtCache
             "wevt_cache must be a path (str or Path) or a WevtCache instance",
         ))
     })
-}
-
-fn resolve_ansi_codec(ansi_codec: Option<String>) -> PyResult<encoding::EncodingRef> {
-    if let Some(codec) = ansi_codec {
-        match encodings().iter().find(|c| c.name() == codec) {
-            Some(encoding) => Ok(*encoding),
-            None => Err(PyErr::new::<PyValueError, _>(format!(
-                "Unknown encoding `[{}]`, see help for possible values",
-                codec
-            ))),
-        }
-    } else {
-        // evtx's default ANSI codec.
-        Ok(encoding::all::WINDOWS_1252)
-    }
 }
 
 fn binxml_values_from_py_list<'a>(

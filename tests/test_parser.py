@@ -123,6 +123,12 @@ def test_it_supports_various_ascii_codecs(small_sample: str):
         assert "<EventID>" in records[0]["data"]
 
 
+@pytest.mark.parametrize("codec", ["mac-roman", "utf-16le", "not-a-codec"])
+def test_it_rejects_unsupported_ansi_codecs(small_sample: str, codec: str):
+    with pytest.raises(ValueError):
+        PyEvtxParser(small_sample, ansi_codec=codec)
+
+
 def test_it_supports_various_num_threads(small_sample: str):
     with open(small_sample, "rb") as o:
         parser = PyEvtxParser(o, number_of_threads=1)

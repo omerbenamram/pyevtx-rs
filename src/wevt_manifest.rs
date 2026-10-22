@@ -3,8 +3,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use encoding::all::encodings;
-use encoding::EncodingRef;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -14,6 +12,8 @@ use pyo3_stub_gen::derive::*;
 use evtx_rs::wevt_templates::manifest::CrimManifest;
 use evtx_rs::wevt_templates::normalize_guid;
 use evtx_rs::wevt_templates::render_temp_to_xml;
+
+use crate::parser::resolve_ansi_codec;
 
 #[derive(Debug, Clone)]
 struct CrimHeaderOwned {
@@ -350,21 +350,6 @@ impl PyWevtTemplateItem {
     fn item(&self) -> &TemplateItemOwned {
         &self.inner.provider(self.provider_index).templates[self.template_index].items
             [self.item_index]
-    }
-}
-
-fn resolve_ansi_codec(ansi_codec: Option<String>) -> PyResult<EncodingRef> {
-    if let Some(codec) = ansi_codec {
-        match encodings().iter().find(|c| c.name() == codec) {
-            Some(encoding) => Ok(*encoding),
-            None => Err(PyErr::new::<PyValueError, _>(format!(
-                "Unknown encoding `[{}]`, see help for possible values",
-                codec
-            ))),
-        }
-    } else {
-        // evtx's default ANSI codec.
-        Ok(encoding::all::WINDOWS_1252)
     }
 }
 
