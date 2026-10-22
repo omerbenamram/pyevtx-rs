@@ -72,15 +72,9 @@ class PyEvtxParser:
     
         `ansi_codec`(str, optional) to control encoding of ansi strings inside the evtx file.
     
-                     Possible values:
-                         ascii, ibm866, iso-8859-1, iso-8859-2, iso-8859-3, iso-8859-4,
-                         iso-8859-5, iso-8859-6, iso-8859-7, iso-8859-8, iso-8859-10,
-                         iso-8859-13, iso-8859-14, iso-8859-15, iso-8859-16,
-                         koi8-r, koi8-u, mac-roman, windows-874, windows-1250, windows-1251,
-                         windows-1252, windows-1253, windows-1254, windows-1255,
-                         windows-1256, windows-1257, windows-1258, mac-cyrillic, utf-8,
-                         windows-949, euc-jp, windows-31j, gbk, gb18030, hz, big5-2003,
-                         pua-mapped-binary, iso-8859-8-i
+                     Any ASCII-compatible WHATWG Encoding Standard label, such as
+                     windows-1252 (the default), windows-1251, iso-8859-2, koi8-r,
+                     gbk, shift_jis or utf-8. `ascii` and `iso-8859-1` map to windows-1252.
     """
     def __new__(cls, path_or_file_like: typing.Any, number_of_threads: typing.Optional[builtins.int] = None, ansi_codec: typing.Optional[builtins.str] = None, validate_checksums: typing.Optional[builtins.bool] = None, separate_json_attributes: typing.Optional[builtins.bool] = None, indent: typing.Optional[builtins.bool] = None, wevt_cache: typing.Optional[typing.Any] = None, skip_errors: builtins.bool = False) -> PyEvtxParser: ...
     def records(self) -> PyRecordsIterator:

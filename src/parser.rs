@@ -1,14 +1,13 @@
 use std::fs::File;
 use std::sync::Arc;
 
-use encoding::all::encodings;
 use pyo3::prelude::*;
 use pyo3::{
     exceptions::PyNotImplementedError, exceptions::PyRuntimeError, exceptions::PyValueError,
 };
 use pyo3_stub_gen::derive::*;
 
-use evtx_rs::{EvtxParser, ParserSettings};
+use evtx_rs::{AnsiCodec, EvtxParser, ParserSettings};
 
 use crate::file_like::{FileOrFileLike, ReadSeek};
 use crate::py_err::PyEvtxError;
@@ -31,15 +30,9 @@ use crate::records::{OutputFormat, PyRecordsIterator};
 ///
 ///     `ansi_codec`(str, optional) to control encoding of ansi strings inside the evtx file.
 ///
-///                  Possible values:
-///                      ascii, ibm866, iso-8859-1, iso-8859-2, iso-8859-3, iso-8859-4,
-///                      iso-8859-5, iso-8859-6, iso-8859-7, iso-8859-8, iso-8859-10,
-///                      iso-8859-13, iso-8859-14, iso-8859-15, iso-8859-16,
-///                      koi8-r, koi8-u, mac-roman, windows-874, windows-1250, windows-1251,
-///                      windows-1252, windows-1253, windows-1254, windows-1255,
-///                      windows-1256, windows-1257, windows-1258, mac-cyrillic, utf-8,
-///                      windows-949, euc-jp, windows-31j, gbk, gb18030, hz, big5-2003,
-///                      pua-mapped-binary, iso-8859-8-i
+///                  Any ASCII-compatible WHATWG Encoding Standard label, such as
+///                  windows-1252 (the default), windows-1251, iso-8859-2, koi8-r,
+///                  gbk, shift_jis or utf-8. `ascii` and `iso-8859-1` map to windows-1252.
 pub struct PyEvtxParser {
     pub(crate) inner: Option<EvtxParser<Box<dyn ReadSeek>>>,
     pub(crate) configuration: ParserSettings,
@@ -72,21 +65,7 @@ impl PyEvtxParser {
     ) -> PyResult<Self> {
         let file_or_file_like = FileOrFileLike::from_pyobject(path_or_file_like)?;
 
-        // Setup `ansi_codec`
-        let codec = if let Some(codec) = ansi_codec {
-            match encodings().iter().find(|c| c.name() == codec) {
-                Some(encoding) => *encoding,
-                None => {
-                    return Err(PyErr::new::<PyValueError, _>(format!(
-                        "Unknown encoding `[{}]`, see help for possible values",
-                        codec
-                    )));
-                }
-            }
-        } else {
-            // evtx's default ANSI codec.
-            encoding::all::WINDOWS_1252
-        };
+        let codec = resolve_ansi_codec(ansi_codec)?;
 
         // Setup `number_of_threads` (0 = let evtx pick, matching ParserSettings::default()).
         let number_of_threads = number_of_threads.unwrap_or(0);
@@ -192,4 +171,23 @@ impl PyEvtxParser {
             skip_errors: self.skip_errors,
         })
     }
+}
+
+/// Resolves an `ansi_codec` argument (a WHATWG Encoding Standard label) to the
+/// codec evtx decodes ANSI strings with. `None` keeps evtx's default, windows-1252.
+pub(crate) fn resolve_ansi_codec(ansi_codec: Option<String>) -> PyResult<AnsiCodec> {
+    let Some(label) = ansi_codec else {
+        return Ok(encoding_rs::WINDOWS_1252);
+    };
+    let codec = encoding_rs::Encoding::for_label(label.as_bytes()).ok_or_else(|| {
+        PyErr::new::<PyValueError, _>(format!(
+            "Unknown encoding `{label}`, expected an Encoding Standard label such as windows-1252"
+        ))
+    })?;
+    if !codec.is_ascii_compatible() {
+        return Err(PyErr::new::<PyValueError, _>(format!(
+            "`{label}` is not an ASCII-compatible encoding; ANSI strings cannot be UTF-16"
+        )));
+    }
+    Ok(codec)
 }

@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0 - 2026-10-22]
+
+### Changed
+
+- Update the Rust parser to `evtx 0.13.0`.
+- Update to PyO3 0.30.1 and pyo3-file 0.18.0.
+- **Breaking:** `ansi_codec` now takes a WHATWG Encoding Standard label, since
+  evtx decodes ANSI strings with `encoding_rs` instead of the unmaintained
+  `encoding` crate (RUSTSEC-2021-0153). Common labels such as `windows-1252`,
+  `windows-1251` and `utf-8` work as before, and `ascii` and `iso-8859-1`
+  resolve to windows-1252. Code pages outside the standard (`big5-2003`, `hz`,
+  `mac-cyrillic`, `mac-roman`, `pua-mapped-binary`) and non-ASCII-compatible
+  encodings such as UTF-16 raise `ValueError`.
+
 ## [0.13.0 - 2026-09-22]
 
 ### Changed
