@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- Refreshed `Cargo.lock` (`crossbeam-epoch` 0.9.21, RUSTSEC-2026-0204) and
+  `uv.lock` (development tools only: `jupyterlab`, `notebook`, `mistune`,
+  `tornado`, `urllib3`, `soupsieve`; `setuptools` dropped) to clear
+  Dependabot alerts.
+
 ## [0.14.1 - 2026-10-29]
 
 ### Changed
