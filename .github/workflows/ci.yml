@@ -5,9 +5,17 @@ on:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
   pull_request:
+  # Called by auto-tag.yml after it pushes the tag; there github.ref is master, not the tag.
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag (X.Y.Z)"
+        required: true
+        type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # A called run takes the caller's github.workflow and github.ref, so key it by tag too.
+  group: ${{ github.workflow }}-${{ inputs.tag || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -303,7 +311,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
     needs:
       [
         macos,
