@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1 - 2026-10-29]
+
+### Changed
+
+- Update the Rust parser to `evtx 0.14.0`. JSON output no longer repeats a key
+  when an element holds two substitutions whose nested templates have elements
+  with the same name: those names are numbered (`Name`, `Name_1`), as they are
+  elsewhere (evtx #302).
+
 ## [0.14.0 - 2026-10-22]
 
 ### Changed
