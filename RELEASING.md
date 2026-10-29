@@ -15,12 +15,16 @@ This project is published to PyPI as `evtx`. Its version is independent of the `
    and fixes alone bump the patch version.
 3. Open a `chore(release): X.Y.Z` PR that bumps `version` in `Cargo.toml`, commits the refreshed
    `Cargo.lock` (CI builds with `--locked`), and adds a `## [X.Y.Z - YYYY-MM-DD]` section to
-   `CHANGELOG.md`.
+   `CHANGELOG.md`. That section becomes the GitHub release's notes, followed by GitHub's list of
+   merged PRs, and CI fails the PR without it.
 4. Merge it.
 
 The merge runs `.github/workflows/auto-tag.yml`. It sees a `Cargo.toml` version with no tag,
 pushes the `X.Y.Z` tag on the merge commit, and runs `.github/workflows/ci.yml` on the tag. Once
-every wheel job passes, its `release` job publishes them to PyPI with `uv publish`.
+every wheel job passes, its `release` job creates the GitHub release, with the wheels attached
+and the version's notes, then publishes the wheels to PyPI with `uv publish`. If the version has
+no notes in `CHANGELOG.md`, auto-tag fails without tagging it; merging a PR that adds them runs
+it again.
 
 Pushing an `X.Y.Z` tag by hand still runs `ci.yml` directly; auto-tag then skips that version
 because the tag exists. If auto-tag pushed the tag but no release started, run `ci.yml` on the
