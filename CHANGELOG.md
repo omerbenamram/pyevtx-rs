@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Switched to upstream `pyo3-stub-gen` 0.23.2, which supports PyO3 0.30, and
+  removed the vendored copy under `vendor/`. Generated stubs are unchanged.
+
 ### Security
 
 - Refreshed `Cargo.lock` (`crossbeam-epoch` 0.9.21, RUSTSEC-2026-0204) and
