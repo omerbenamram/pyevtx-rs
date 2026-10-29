@@ -19,8 +19,11 @@ This project is published to PyPI as `evtx`. Its version is independent of the `
 4. Merge it.
 
 The merge runs `.github/workflows/auto-tag.yml`. It sees a `Cargo.toml` version with no tag,
-pushes the `X.Y.Z` tag on the merge commit, and calls `.github/workflows/ci.yml` for it. Once
+pushes the `X.Y.Z` tag on the merge commit, and runs `.github/workflows/ci.yml` on the tag. Once
 every wheel job passes, its `release` job publishes them to PyPI with `uv publish`.
 
 Pushing an `X.Y.Z` tag by hand still runs `ci.yml` directly; auto-tag then skips that version
-because the tag exists. To retry a failed release, re-run the failed jobs of its run.
+because the tag exists. If auto-tag pushed the tag but no release started, run `ci.yml` on the
+tag from the Actions tab. To retry a failed release, re-run the failed jobs of its `ci.yml` run.
+If it failed because of the code, leave the tag where it is and ship the fix as the next patch
+release; the PyPI publish runs last, so that version never reached PyPI.
