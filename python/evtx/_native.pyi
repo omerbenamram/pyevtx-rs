@@ -66,9 +66,10 @@ class PyEvtxParser:
         `path_or_file_like`: a path (str or `os.PathLike`), or a binary file-like object
             with `read` and `seek`.
     
-        `number_of_threads` (int, optional): the most worker threads the parser may use;
-            `0`, the default, uses one per core. Records are currently parsed one chunk at
-            a time on the calling thread, so this has no effect yet.
+        `number_of_threads` (int, optional): how many chunks to parse at the same time, each
+            on a thread of its own, while the records of the chunks before them are returned.
+            `0`, the default, uses one per core, and so does any number above that. `1`
+            parses on the calling thread. Chunks are parsed with the GIL released.
     
         `ansi_codec` (str, optional): the encoding of the ANSI strings inside the log. Any
             ASCII-compatible WHATWG Encoding Standard label, such as windows-1252 (the

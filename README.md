@@ -108,6 +108,14 @@ def main():
         print(f'------------------------------------------')
 ```
 
+### Threads
+
+The records iterators parse `number_of_threads` chunks at a time, one per core
+by default, while the records of the chunks before them are returned. Chunks are
+parsed with the GIL released, so other Python threads go on meanwhile, and a
+file-like object is only read from the thread that iterates. With
+`number_of_threads=1`, chunks are parsed on that thread.
+
 ### Handling malformed records
 
 By default, a malformed record or chunk raises an exception with its available

@@ -246,6 +246,7 @@ dependencies = [
  "pyo3",
  "pyo3-file",
  "pyo3-stub-gen",
+ "rayon",
  "serde_json",
 ]
 

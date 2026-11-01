@@ -22,6 +22,14 @@ and this project adheres to
 
 ### Changed
 
+- `number_of_threads` works: it had no effect, and records were parsed one
+  chunk at a time on the calling thread, with the GIL held. The records
+  iterators now parse that many chunks at a time on Rust threads, with the
+  GIL released, while the records of the chunks before them are returned.
+  The default, `0`, uses one thread per core: on 4 cores, iterating over a
+  31 MB log is 3.1 times as fast in JSON and twice as fast in XML.
+  `number_of_threads=1` parses on the calling thread, as before, but with the
+  GIL released.
 - Switched to upstream `pyo3-stub-gen` 0.23.2, which supports PyO3 0.30, and
   removed the vendored copy under `vendor/`. Generated stubs are unchanged.
 
@@ -29,9 +37,7 @@ and this project adheres to
 
 - `PyEvtxParser`'s docstring listed 3 of its 8 arguments, with a signature
   that marked them positional-only. It now describes all of them, and
-  `inspect.signature(PyEvtxParser)` gives the real one. It also says that
-  `number_of_threads` has no effect yet: records are parsed one chunk at a
-  time on the calling thread.
+  `inspect.signature(PyEvtxParser)` gives the real one.
 - The `WevtCache.resolve_template_guid` example called `from_system()` and
   `get_template()`, which don't exist. It now uses `load()` and
   `render_template_xml()`.
