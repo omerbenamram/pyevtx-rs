@@ -213,8 +213,9 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 
 [[package]]
 name = "evtx"
-version = "0.14.0"
-source = "git+https://github.com/omerbenamram/evtx?rev=151f324609b4988378f0fff596135fb6f38694fa#151f324609b4988378f0fff596135fb6f38694fa"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f43baa96df69a1b45b7738edb91168028915e0f33aca91f194c39357f432a52"
 dependencies = [
  "ahash",
  "bitflags 2.13.2",
@@ -1482,7 +1483,8 @@ dependencies = [
 [[package]]
 name = "utf16-simd"
 version = "0.2.0"
-source = "git+https://github.com/omerbenamram/evtx?rev=151f324609b4988378f0fff596135fb6f38694fa#151f324609b4988378f0fff596135fb6f38694fa"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3029708233279f09f8687281ca6ae9fa07bf20abad7df602d36b8f8f4dadc28"
 dependencies = [
  "sonic-rs",
 ]
