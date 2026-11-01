@@ -8,6 +8,54 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.15.0 - 2026-11-01]
+
+This release is built on evtx 0.15.1, in which records render as Windows
+renders them in many more ways. All the breaking changes of this round are in
+this one release. Breaking changes says what to change when upgrading; the
+sections after it give the details.
+
+### Breaking changes
+
+The XML and JSON that `records()` and `records_json()` return, from evtx 0.15
+([its notes](https://github.com/omerbenamram/evtx/releases/tag/v0.15.0) give
+every change):
+
+- Timestamps have seven fractional digits (`2016-07-08T18:12:51.6816408Z`).
+  Code that parses them with exactly six needs to accept seven. The `timestamp`
+  of a record dict is unchanged.
+- GUIDs are lowercase and in braces (`{54849625-5478-4994-a5ba-3e3b0328c30d}`).
+- Elements that depend on a NULL value are left out, as Windows leaves them
+  out: the `<Binary></Binary>` and `<Data></Data>` of values that were never
+  set, and unset optional `System` fields. Code that reads them needs to handle
+  their absence.
+- In JSON, consecutive `Data` elements of one name are one member whose value
+  is an array, and a name that comes back later is numbered `_1`, `_2`: in
+  event 4648 of some logs, the second `LogonGuid` is `LogonGuid_1`.
+- XML writes empty elements as `<X/>`, or as `<X></X>` when their content is
+  empty, with nothing inside them when indented.
+- Characters that XML doesn't allow are `_` in XML, and lone surrogates are `_`
+  in XML and U+FFFD in JSON.
+- A log that has wrapped around comes out oldest record first.
+- The walk over a chunk's records resyncs past a corrupt record header, so more
+  records come out. With `recover_records=True`, the records that the resync
+  skips come out as recovered.
+- A record fails with an error once its output passes 16 MiB, or once its tree
+  takes more than 2^18 nodes. The samples' records stay far below both.
+
+The Python API:
+
+- Each record dict has a `recovered` key, `False` except for the records that
+  `recover_records=True` adds. Code that compares whole dicts needs it.
+- An error about a record says where the record is: `Failed to read the record
+  at offset 0x200 of chunk 1 (file offset 0x11200)`. A chunk that can't be
+  parsed says `Failed to parse chunk number 1 (record IDs 8..14)`, where it
+  said `Failed to parse chunk containing record IDs 8..14`. Code that matches
+  the messages needs the new text.
+- `number_of_threads` takes effect, and its default, `0`, parses with one
+  thread per core, where 0.14 parsed on the calling thread alone. Pass
+  `number_of_threads=1` to parse on one thread.
+
 ### Added
 
 - `PyEvtxParser(recover_records=True)` also yields the records left in
@@ -28,16 +76,9 @@ and this project adheres to
 
 ### Changed
 
-- Update the Rust parser to `evtx 0.15.1`. Records render as Windows renders
-  them in many more ways, which changes the XML and JSON: timestamps have
-  seven fractional digits, GUIDs are lowercase and in braces, elements that
-  depend on a NULL value are left out, consecutive `Data` elements of one name
-  are one JSON array, empty elements are `<X/>`, and a log that has wrapped
-  around comes out oldest record first. evtx's CHANGELOG lists every change.
-- An error about a record says where the record is: `Failed to read the record
-  at offset 0x200 of chunk 1 (file offset 0x11200)`. A chunk that can't be
-  parsed says `Failed to parse chunk number 1 (record IDs 8..14)`,
-  where it said `Failed to parse chunk containing record IDs 8..14`.
+- Update the Rust parser to `evtx 0.15.1`, the first published release of
+  evtx's 0.15 changes (0.15.0's Windows build failed). Breaking changes says
+  what they change in the XML and JSON.
 - `number_of_threads` works: it had no effect, and records were parsed one
   chunk at a time on the calling thread, with the GIL held. The records
   iterators now parse that many chunks at a time on Rust threads, with the
@@ -62,6 +103,22 @@ and this project adheres to
 
 ### Security
 
+- Crafted files could hang pyevtx, abort Python or take gigabytes of memory.
+  evtx 0.15 fixes them, and [its
+  notes](https://github.com/omerbenamram/evtx/releases/tag/v0.15.0) give each
+  one:
+  - `WevtCache.load()`, and a `.wevtcache` path passed as `wevt_cache`, trusted
+    each entry's length and allocated that many bytes before reading them. On a
+    25-byte file, 0.14.1 asked for 4 GiB, which aborts Python under a 2 GB
+    memory limit ([evtx#334](https://github.com/omerbenamram/evtx/issues/334)).
+    It now raises `ValueError`. The WEVT manifests that `load()`, `add_dll()`
+    and `add_dir()` read could reserve room for 4 billion entries the same way.
+  - A chunk whose string table links back to a string it already listed made
+    parsing loop forever.
+  - A crafted record could render to gigabytes, build a tree of gigabytes, or
+    nest elements deep enough to overflow the stack, and crafted templates could
+    keep hundreds of megabytes of compiled templates. evtx now caps each of
+    these.
 - Refreshed `Cargo.lock` (`crossbeam-epoch` 0.9.21, RUSTSEC-2026-0204) and
   `uv.lock` (development tools only: `jupyterlab`, `notebook`, `mistune`,
   `tornado`, `urllib3`, `soupsieve`; `setuptools` dropped) to clear
