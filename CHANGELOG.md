@@ -45,7 +45,9 @@ and this project adheres to
   The default, `0`, uses one thread per core: on 4 cores, iterating over a
   31 MB log is 3.1 times as fast in JSON and twice as fast in XML.
   `number_of_threads=1` parses on the calling thread, as before, but with the
-  GIL released.
+  GIL released. Threads can share an iterator: a call to `next()` waits for
+  the one before it to return, as it did when the GIL was held throughout, and
+  on free-threaded Python too.
 - Switched to upstream `pyo3-stub-gen` 0.23.2, which supports PyO3 0.30, and
   removed the vendored copy under `vendor/`. Generated stubs are unchanged.
 

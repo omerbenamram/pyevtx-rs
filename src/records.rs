@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
+use pyo3::sync::MutexExt;
 use pyo3::types::PyDict;
 use pyo3_stub_gen::derive::*;
 
@@ -85,16 +86,22 @@ pub(crate) fn warn_skipped(py: Python<'_>, error: &PyErr) -> PyResult<()> {
     Ok(())
 }
 
-/// A chunk's records, or the panic its parse ended in (in a `Mutex`, which makes it `Sync`).
-type Parsed = Result<ChunkRecords, Mutex<Box<dyn Any + Send>>>;
+/// A chunk's records, or the panic its parse ended in.
+type Parsed = Result<ChunkRecords, Box<dyn Any + Send>>;
 
 #[gen_stub_pyclass]
-#[pyclass]
+#[pyclass(frozen)]
 pub struct PyRecordsIterator {
-    chunks: ChunkPipeline,
-    /// The records of the chunk being returned.
-    records: ChunkRecords,
+    /// Python threads can share the iterator: a call that finds another one going waits for it
+    /// with the GIL released, since that one can be waiting for a chunk with the GIL released.
+    records: Mutex<Records>,
     skip_errors: bool,
+}
+
+/// Where a records iterator is: the chunks, and the records of the one being returned.
+struct Records {
+    chunks: ChunkPipeline,
+    current: ChunkRecords,
 }
 
 impl PyRecordsIterator {
@@ -107,27 +114,37 @@ impl PyRecordsIterator {
         skip_errors: bool,
     ) -> Self {
         let (sender, receiver) = mpsc::channel();
+        let chunks = ChunkPipeline {
+            chunks,
+            settings,
+            output_format,
+            num_threads,
+            next_in: 0,
+            next_out: 0,
+            exhausted: false,
+            parsed: BTreeMap::new(),
+            sender,
+            receiver,
+        };
         PyRecordsIterator {
-            chunks: ChunkPipeline {
+            records: Mutex::new(Records {
                 chunks,
-                settings,
-                output_format,
-                num_threads,
-                next_in: 0,
-                next_out: 0,
-                exhausted: false,
-                parsed: BTreeMap::new(),
-                sender,
-                receiver: Mutex::new(receiver),
-            },
-            records: ChunkRecords::default(),
+                current: ChunkRecords::default(),
+            }),
             skip_errors,
         }
     }
 
-    fn next(&mut self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+    fn next(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         loop {
-            match self.next_record(py) {
+            // Lets go of the records before warning: warnings filters and hooks run Python code.
+            let record = self
+                .records
+                .lock_py_attached(py)
+                // A panic in a call before left the records as they were.
+                .unwrap_or_else(PoisonError::into_inner)
+                .next(py);
+            match record {
                 Err(error) if self.skip_errors && error.is_instance_of::<PyRuntimeError>(py) => {
                     warn_skipped(py, &error)?;
                 }
@@ -135,16 +152,18 @@ impl PyRecordsIterator {
             }
         }
     }
+}
 
-    fn next_record(&mut self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+impl Records {
+    fn next(&mut self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         loop {
-            if let Some(record) = self.records.records.next() {
-                let record = record_to_pydict(&self.records.text, record?, py)?;
+            if let Some(record) = self.current.records.next() {
+                let record = record_to_pydict(&self.current.text, record?, py)?;
                 return Ok(Some(record.into_any().unbind()));
             }
             let chunks = &mut self.chunks;
             match py.detach(|| chunks.next()) {
-                Some(records) => self.records = records,
+                Some(records) => self.current = records,
                 None => return Ok(None),
             }
         }
@@ -165,7 +184,7 @@ struct ChunkPipeline {
     exhausted: bool,
     parsed: BTreeMap<u64, Parsed>,
     sender: Sender<(u64, Parsed)>,
-    receiver: Mutex<Receiver<(u64, Parsed)>>,
+    receiver: Receiver<(u64, Parsed)>,
 }
 
 impl ChunkPipeline {
@@ -185,18 +204,12 @@ impl ChunkPipeline {
                 self.next_out += 1;
                 // Keep `num_threads` chunks being parsed while the caller goes through this one.
                 self.fill();
-                return Some(parsed.unwrap_or_else(|panic| {
-                    panic::resume_unwind(panic.into_inner().unwrap_or_else(PoisonError::into_inner))
-                }));
+                return Some(parsed.unwrap_or_else(|panic| panic::resume_unwind(panic)));
             }
             if self.next_out == self.next_in {
                 return None;
             }
-            let receiver = self
-                .receiver
-                .get_mut()
-                .unwrap_or_else(PoisonError::into_inner);
-            let (number, parsed) = receiver.recv().expect("the pipeline keeps a sender");
+            let (number, parsed) = self.receiver.recv().expect("the pipeline keeps a sender");
             self.parsed.insert(number, parsed);
         }
     }
@@ -226,7 +239,7 @@ impl ChunkPipeline {
                     chunk_records(chunk, &settings, output_format)
                 }));
                 // The receiver is gone if the iterator was dropped.
-                let _ = sender.send((number, parsed.map_err(Mutex::new)));
+                let _ = sender.send((number, parsed));
             });
         }
     }
@@ -306,7 +319,7 @@ impl PyRecordsIterator {
         slf
     }
 
-    fn __next__(mut slf: PyRefMut<'_, Self>, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
-        slf.next(py)
+    fn __next__(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        self.next(py)
     }
 }
