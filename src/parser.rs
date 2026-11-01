@@ -26,9 +26,10 @@ use crate::records::{OutputFormat, PyRecordsIterator};
 ///     `path_or_file_like`: a path (str or `os.PathLike`), or a binary file-like object
 ///         with `read` and `seek`.
 ///
-///     `number_of_threads` (int, optional): the most worker threads the parser may use;
-///         `0`, the default, uses one per core. Records are currently parsed one chunk at
-///         a time on the calling thread, so this has no effect yet.
+///     `number_of_threads` (int, optional): how many chunks to parse at the same time, each
+///         on a thread of its own, while the records of the chunks before them are returned.
+///         `0`, the default, uses one per core, and so does any number above that. `1`
+///         parses on the calling thread. Chunks are parsed with the GIL released.
 ///
 ///     `ansi_codec` (str, optional): the encoding of the ANSI strings inside the log. Any
 ///         ASCII-compatible WHATWG Encoding Standard label, such as windows-1252 (the
@@ -65,6 +66,8 @@ pub struct PyEvtxParser {
     pub(crate) inner: Option<EvtxParser<Box<dyn ReadSeek>>>,
     pub(crate) configuration: ParserSettings,
     pub(crate) skip_errors: bool,
+    /// How many chunks the records iterators parse at a time.
+    pub(crate) num_threads: usize,
 }
 
 #[gen_stub_pymethods]
@@ -101,12 +104,17 @@ impl PyEvtxParser {
 
         let codec = resolve_ansi_codec(ansi_codec)?;
 
-        // Setup `number_of_threads` (0 = let evtx pick, matching ParserSettings::default()).
-        let number_of_threads = number_of_threads.unwrap_or(0);
+        // Chunks are parsed on rayon's pool, so more threads than it has would only hold more
+        // chunks in memory.
+        let pool_threads = rayon::current_num_threads();
+        let num_threads = match number_of_threads.unwrap_or(0) {
+            0 => pool_threads,
+            n => n.min(pool_threads),
+        };
 
         let mut configuration = ParserSettings::new()
             .ansi_codec(codec)
-            .num_threads(number_of_threads);
+            .num_threads(num_threads);
 
         if let Some(validate_checksums) = validate_checksums {
             configuration = configuration.validate_checksums(validate_checksums);
@@ -158,6 +166,7 @@ impl PyEvtxParser {
             inner: Some(parser),
             configuration,
             skip_errors,
+            num_threads,
         })
     }
 
@@ -205,13 +214,13 @@ impl PyEvtxParser {
             }
         };
 
-        Ok(PyRecordsIterator {
-            inner: inner.into_chunks(),
-            records_iter: Vec::new().into_iter(),
-            settings: Arc::new(self.configuration.clone()),
+        Ok(PyRecordsIterator::new(
+            inner.into_chunks(),
+            Arc::new(self.configuration.clone()),
             output_format,
-            skip_errors: self.skip_errors,
-        })
+            self.num_threads,
+            self.skip_errors,
+        ))
     }
 }
 
