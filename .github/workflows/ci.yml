@@ -85,6 +85,11 @@ jobs:
       - run: pip install -U pytest
       - run: pip install --no-index --find-links ./dist evtx
       - run: pytest
+        env:
+          # tests/test_rust_parity.py checks the records against evtx's own over its samples.
+          EVTX_SAMPLES: ${{ github.workspace }}/evtx-rs/samples
+          # Its Rust side is built apart from the wheels, which were built in a container.
+          CARGO_TARGET_DIR: ${{ runner.temp }}/parity-target
 
   linux-arm64:
     runs-on: ubuntu-latest
