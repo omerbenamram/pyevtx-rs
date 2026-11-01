@@ -103,6 +103,22 @@ The Python API:
 
 ### Security
 
+- Crafted files could hang pyevtx, abort Python or take gigabytes of memory.
+  evtx 0.15 fixes them, and [its
+  notes](https://github.com/omerbenamram/evtx/releases/tag/v0.15.0) give each
+  one:
+  - `WevtCache.load()`, and a `.wevtcache` path passed as `wevt_cache`, trusted
+    each entry's length and allocated that many bytes before reading them. On a
+    25-byte file, 0.14.1 asked for 4 GiB, which aborts Python under a 2 GB
+    memory limit ([evtx#334](https://github.com/omerbenamram/evtx/issues/334)).
+    It now raises `ValueError`. The WEVT manifests that `load()`, `add_dll()`
+    and `add_dir()` read could reserve room for 4 billion entries the same way.
+  - A chunk whose string table links back to a string it already listed made
+    parsing loop forever.
+  - A crafted record could render to gigabytes, build a tree of gigabytes, or
+    nest elements deep enough to overflow the stack, and crafted templates could
+    keep hundreds of megabytes of compiled templates. evtx now caps each of
+    these.
 - Refreshed `Cargo.lock` (`crossbeam-epoch` 0.9.21, RUSTSEC-2026-0204) and
   `uv.lock` (development tools only: `jupyterlab`, `notebook`, `mistune`,
   `tornado`, `urllib3`, `soupsieve`; `setuptools` dropped) to clear
