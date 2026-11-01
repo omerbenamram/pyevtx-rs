@@ -12,7 +12,7 @@ name = "evtx"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-evtx_rs = { git = "https://github.com/omerbenamram/evtx", rev = "151f324609b4988378f0fff596135fb6f38694fa", default-features = false, features = [
+evtx_rs = { version = "0.15.1", default-features = false, features = [
     "multithreading",
 ], package = "evtx" }
 encoding_rs = "0.8"

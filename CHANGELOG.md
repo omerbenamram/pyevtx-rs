@@ -28,7 +28,7 @@ and this project adheres to
 
 ### Changed
 
-- Update the Rust parser to `evtx 0.15.0`. Records render as Windows renders
+- Update the Rust parser to `evtx 0.15.1`. Records render as Windows renders
   them in many more ways, which changes the XML and JSON: timestamps have
   seven fractional digits, GUIDs are lowercase and in braces, elements that
   depend on a NULL value are left out, consecutive `Data` elements of one name
