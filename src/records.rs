@@ -72,6 +72,19 @@ fn record_to_pydict<'py>(
     Ok(pyrecord)
 }
 
+/// Emits the `RuntimeWarning` that `skip_errors=True` turns `error` into.
+pub(crate) fn warn_skipped(py: Python<'_>, error: &PyErr) -> PyResult<()> {
+    py.import("warnings")?.call_method1(
+        "warn",
+        (
+            format!("Skipping EVTX data: {error}"),
+            py.get_type::<pyo3::exceptions::PyRuntimeWarning>(),
+            1,
+        ),
+    )?;
+    Ok(())
+}
+
 /// A chunk's records, or the panic its parse ended in (in a `Mutex`, which makes it `Sync`).
 type Parsed = Result<ChunkRecords, Mutex<Box<dyn Any + Send>>>;
 
@@ -115,18 +128,8 @@ impl PyRecordsIterator {
     fn next(&mut self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         loop {
             match self.next_record(py) {
-                Err(error)
-                    if self.skip_errors
-                        && error.is_instance_of::<pyo3::exceptions::PyRuntimeError>(py) =>
-                {
-                    py.import("warnings")?.call_method1(
-                        "warn",
-                        (
-                            format!("Skipping EVTX data: {error}"),
-                            py.get_type::<pyo3::exceptions::PyRuntimeWarning>(),
-                            1,
-                        ),
-                    )?;
+                Err(error) if self.skip_errors && error.is_instance_of::<PyRuntimeError>(py) => {
+                    warn_skipped(py, &error)?;
                 }
                 result => return result,
             }
@@ -238,12 +241,13 @@ fn chunk_records(
 ) -> ChunkRecords {
     let first_id = data.header.first_event_record_id;
     let last_id = data.header.last_event_record_id;
+    let number = data.number.expect("the parser numbers the chunks it reads");
     let capacity = 2 * data.data.len();
     let mut chunk = match data.parse(Arc::clone(settings)) {
         Ok(chunk) => chunk,
         Err(e) => {
             return ChunkRecords::failed(PyRuntimeError::new_err(format!(
-                "Failed to parse chunk containing record IDs {first_id}..{last_id}: {}",
+                "Failed to parse chunk number {number} (record IDs {first_id}..{last_id}): {}",
                 error_message(&e),
             )));
         }

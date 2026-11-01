@@ -12,8 +12,9 @@ use evtx_rs::mta::MtaFile;
 use evtx_rs::{AnsiCodec, EvtxParser, ParserSettings};
 
 use crate::file_like::{path_string_from_pyany, FileOrFileLike, ReadSeek};
+use crate::header::{PyChunkHeader, PyFileHeader};
 use crate::py_err::{py_err_from_mta_error, PyEvtxError};
-use crate::records::{OutputFormat, PyRecordsIterator};
+use crate::records::{warn_skipped, OutputFormat, PyRecordsIterator};
 
 #[gen_stub_pyclass]
 #[pyclass]
@@ -68,6 +69,8 @@ pub struct PyEvtxParser {
     pub(crate) skip_errors: bool,
     /// How many chunks the records iterators parse at a time.
     pub(crate) num_threads: usize,
+    /// The file header, as read when the parser was created.
+    header: PyFileHeader,
 }
 
 #[gen_stub_pymethods]
@@ -161,13 +164,66 @@ impl PyEvtxParser {
         let parser = EvtxParser::from_read_seek(boxed_read_seek)
             .map_err(PyEvtxError)?
             .with_configuration(configuration.clone());
+        let header = PyFileHeader::from(parser.header());
 
         Ok(PyEvtxParser {
             inner: Some(parser),
             configuration,
             skip_errors,
             num_threads,
+            header,
         })
+    }
+
+    /// The log's file header, as read when the parser was created: its version, flags, chunk
+    /// numbers and next record ID, and whether its CRC32 matches.
+    #[getter]
+    fn header(&self) -> PyFileHeader {
+        self.header.clone()
+    }
+
+    /// chunks(self, /)
+    /// --
+    ///
+    /// Returns the header of each chunk, without parsing its records: its number and offset in
+    /// the file, its record numbers and IDs, its flags, and whether its header's and records'
+    /// CRC32s match. Use it before `records()` or `records_json()`, which use up the parser.
+    ///
+    /// The chunks come in the order the records iterators read them, from the one that holds
+    /// the oldest records, so a log that has wrapped around starts in the middle of the file.
+    /// Empty chunks are left out. Checksums are checked whatever `validate_checksums` says. A
+    /// chunk that can't be read raises `RuntimeError`, or with `skip_errors=True` emits a
+    /// `RuntimeWarning` and is left out.
+    fn chunks(&mut self, py: Python<'_>) -> PyResult<Vec<PyChunkHeader>> {
+        let parser = self.take_inner()?;
+        // Read the chunks as they are, to say whether their checksums match.
+        let mut parser =
+            parser.with_configuration(self.configuration.clone().validate_checksums(false));
+        let skip_errors = self.skip_errors;
+        let mut headers = vec![];
+        let mut errors = vec![];
+        py.detach(|| {
+            for chunk in parser.chunks() {
+                match chunk {
+                    Ok(chunk) => headers.push(PyChunkHeader::new(&chunk)),
+                    Err(error) => {
+                        errors.push(PyErr::from(PyEvtxError(error)));
+                        if !skip_errors {
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+        self.inner = Some(parser.with_configuration(self.configuration.clone()));
+        for error in errors {
+            if skip_errors && error.is_instance_of::<PyRuntimeError>(py) {
+                warn_skipped(py, &error)?;
+            } else {
+                return Err(error);
+            }
+        }
+        Ok(headers)
     }
 
     /// records(self, /)
@@ -204,15 +260,14 @@ impl PyEvtxParser {
 }
 
 impl PyEvtxParser {
+    fn take_inner(&mut self) -> PyResult<EvtxParser<Box<dyn ReadSeek>>> {
+        self.inner
+            .take()
+            .ok_or_else(|| PyRuntimeError::new_err("PyEvtxParser can only be used once"))
+    }
+
     fn records_iterator(&mut self, output_format: OutputFormat) -> PyResult<PyRecordsIterator> {
-        let inner = match self.inner.take() {
-            Some(inner) => inner,
-            None => {
-                return Err(PyErr::new::<PyRuntimeError, _>(
-                    "PyEvtxParser can only be used once",
-                ));
-            }
-        };
+        let inner = self.take_inner()?;
 
         Ok(PyRecordsIterator::new(
             inner.into_chunks(),

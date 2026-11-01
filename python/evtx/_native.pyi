@@ -4,7 +4,9 @@
 import builtins
 import typing
 __all__ = [
+    "ChunkHeader",
     "Event",
+    "FileHeader",
     "Manifest",
     "Provider",
     "PyEvtxParser",
@@ -13,6 +15,73 @@ __all__ = [
     "TemplateItem",
     "WevtCache",
 ]
+
+@typing.final
+class ChunkHeader:
+    r"""
+    A chunk's header, as `PyEvtxParser.chunks()` gives it.
+    """
+    @property
+    def number(self) -> builtins.int:
+        r"""
+        The chunk's number in the file.
+        """
+    @property
+    def offset(self) -> builtins.int:
+        r"""
+        Where the chunk starts in the file.
+        """
+    @property
+    def first_event_record_number(self) -> builtins.int: ...
+    @property
+    def last_event_record_number(self) -> builtins.int: ...
+    @property
+    def first_event_record_id(self) -> builtins.int: ...
+    @property
+    def last_event_record_id(self) -> builtins.int: ...
+    @property
+    def header_size(self) -> builtins.int: ...
+    @property
+    def last_event_record_data_offset(self) -> builtins.int:
+        r"""
+        Where the chunk's last record starts, from the start of the chunk.
+        """
+    @property
+    def free_space_offset(self) -> builtins.int:
+        r"""
+        Where the chunk's free space starts, after its records, from the start of the chunk.
+        """
+    @property
+    def flags(self) -> builtins.int:
+        r"""
+        The chunk's flags, every bit as stored: `0x1` dirty, `0x4` no CRC32.
+        """
+    @property
+    def is_dirty(self) -> builtins.bool:
+        r"""
+        Whether the chunk wasn't closed cleanly.
+        """
+    @property
+    def events_checksum(self) -> builtins.int:
+        r"""
+        The CRC32 of the chunk's records, as stored.
+        """
+    @property
+    def header_chunk_checksum(self) -> builtins.int:
+        r"""
+        The CRC32 of the chunk's header, as stored.
+        """
+    @property
+    def header_checksum_valid(self) -> builtins.bool:
+        r"""
+        Whether the header's CRC32 matches, or the flags say that the chunk has none.
+        """
+    @property
+    def events_checksum_valid(self) -> builtins.bool:
+        r"""
+        Whether the records' CRC32 matches, or the flags say that the chunk has none.
+        """
+    def __repr__(self) -> builtins.str: ...
 
 @typing.final
 class Event:
@@ -24,6 +93,76 @@ class Event:
     def message_identifier(self) -> builtins.int: ...
     @property
     def template_offset(self) -> typing.Optional[builtins.int]: ...
+
+@typing.final
+class FileHeader:
+    r"""
+    A log's file header, as `PyEvtxParser.header` gives it.
+    
+    A log that wasn't closed cleanly is dirty, and its header can be behind its chunks: their
+    record IDs are what `records()` goes by.
+    """
+    @property
+    def first_chunk_number(self) -> builtins.int:
+        r"""
+        The chunk that holds the oldest records, by the header.
+        """
+    @property
+    def last_chunk_number(self) -> builtins.int:
+        r"""
+        The chunk being written, by the header.
+        """
+    @property
+    def next_record_id(self) -> builtins.int:
+        r"""
+        The ID the next record gets, by the header.
+        """
+    @property
+    def header_size(self) -> builtins.int: ...
+    @property
+    def minor_version(self) -> builtins.int: ...
+    @property
+    def major_version(self) -> builtins.int: ...
+    @property
+    def header_block_size(self) -> builtins.int: ...
+    @property
+    def chunk_count(self) -> builtins.int:
+        r"""
+        How many chunks the header says the log has.
+        """
+    @property
+    def flags(self) -> builtins.int:
+        r"""
+        The header's flags, every bit as stored: `0x1` dirty, `0x2` full, `0x4` no CRC32.
+        """
+    @property
+    def is_dirty(self) -> builtins.bool:
+        r"""
+        Whether the log wasn't closed cleanly.
+        """
+    @property
+    def is_full(self) -> builtins.bool:
+        r"""
+        Whether the log is full.
+        """
+    @property
+    def checksum(self) -> builtins.int:
+        r"""
+        The CRC32 of the header's first 120 bytes, as stored.
+        """
+    @property
+    def computed_checksum(self) -> builtins.int:
+        r"""
+        The CRC32 of the header's first 120 bytes as read.
+        """
+    @property
+    def checksum_valid(self) -> builtins.bool:
+        r"""
+        Whether the header is intact: `checksum` is `computed_checksum`, or the flags say that
+        the header has no CRC32. A log whose header isn't is still read, since chunks are found at
+        fixed offsets.
+        """
+    def __repr__(self) -> builtins.str: ...
 
 @typing.final
 class Manifest:
@@ -103,7 +242,28 @@ class PyEvtxParser:
             information. Each record then gets a `RenderingInfo` element with its message
             and its level, task, opcode and keyword names, in the file's language.
     """
+    @property
+    def header(self) -> FileHeader:
+        r"""
+        The log's file header, as read when the parser was created: its version, flags, chunk
+        numbers and next record ID, and whether its CRC32 matches.
+        """
     def __new__(cls, path_or_file_like: typing.Any, number_of_threads: typing.Optional[builtins.int] = None, ansi_codec: typing.Optional[builtins.str] = None, validate_checksums: typing.Optional[builtins.bool] = None, separate_json_attributes: typing.Optional[builtins.bool] = None, indent: typing.Optional[builtins.bool] = None, wevt_cache: typing.Optional[typing.Any] = None, skip_errors: builtins.bool = False, recover_records: builtins.bool = False, mta: typing.Optional[typing.Any] = None) -> PyEvtxParser: ...
+    def chunks(self) -> builtins.list[ChunkHeader]:
+        r"""
+        chunks(self, /)
+        --
+        
+        Returns the header of each chunk, without parsing its records: its number and offset in
+        the file, its record numbers and IDs, its flags, and whether its header's and records'
+        CRC32s match. Use it before `records()` or `records_json()`, which use up the parser.
+        
+        The chunks come in the order the records iterators read them, from the one that holds
+        the oldest records, so a log that has wrapped around starts in the middle of the file.
+        Empty chunks are left out. Checksums are checked whatever `validate_checksums` says. A
+        chunk that can't be read raises `RuntimeError`, or with `skip_errors=True` emits a
+        `RuntimeWarning` and is left out.
+        """
     def records(self) -> PyRecordsIterator:
         r"""
         records(self, /)
