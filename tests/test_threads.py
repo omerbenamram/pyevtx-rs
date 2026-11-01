@@ -103,6 +103,31 @@ def test_an_iterator_can_be_dropped_while_chunks_are_parsed(small_sample):
     gc.collect()
 
 
+@pytest.mark.parametrize("threads", [1, 4])
+def test_threads_can_share_an_iterator(small_sample, tmp_path, threads):
+    path = tmp_path / "numbered.evtx"
+    path.write_bytes(numbered_log(small_sample, 20))
+    records = PyEvtxParser(str(path), number_of_threads=threads).records_json()
+    seen, errors = ([], []), []
+
+    def take(ids):
+        try:
+            for record in records:
+                ids.append(record["event_record_id"])
+        except Exception as error:  # noqa: BLE001 - any error fails the test
+            errors.append(error)
+
+    workers = [threading.Thread(target=take, args=(ids,)) for ids in seen]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join()
+    assert errors == []
+    # Each record went to one of the threads, and each thread got its records in order.
+    assert sorted(seen[0] + seen[1]) == list(range(1, 141))
+    assert all(ids == sorted(ids) for ids in seen)
+
+
 @pytest.mark.skipif(not GIL_ENABLED, reason="the GIL is disabled")
 def test_other_threads_run_while_chunks_are_parsed(small_sample, tmp_path):
     path = tmp_path / "numbered.evtx"

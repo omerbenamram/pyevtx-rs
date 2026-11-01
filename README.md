@@ -50,10 +50,10 @@ newer (the build-system requirement installs it automatically with pip):
 python3.14t -m pip install .
 ```
 
-Concurrent threads should use independent parsers and file handles. Do not call
-`next()` concurrently on the same mutable iterator or modify a shared file-like
-object while parsing it. The tests exercise parallel XML/JSON parsing from paths
-and in-memory streams while Python garbage collection runs.
+Threads that share an iterator take turns, so to parse in parallel, give each
+thread its own parser and file handle. Do not modify a shared file-like object
+while parsing it. The tests exercise parallel XML/JSON parsing from paths and
+in-memory streams while Python garbage collection runs.
 
 ## Usage
 
@@ -113,8 +113,11 @@ def main():
 The records iterators parse `number_of_threads` chunks at a time, one per core
 by default, while the records of the chunks before them are returned. Chunks are
 parsed with the GIL released, so other Python threads go on meanwhile, and a
-file-like object is only read from the thread that iterates. With
+file-like object is only read from a thread that iterates. With
 `number_of_threads=1`, chunks are parsed on that thread.
+
+Threads can share an iterator: a call to `next()` waits for the one before it to
+return, and each record goes to one of the threads.
 
 ### Handling malformed records
 
