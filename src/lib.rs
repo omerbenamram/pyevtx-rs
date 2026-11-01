@@ -4,6 +4,7 @@
 
 mod doc;
 mod file_like;
+mod header;
 mod parser;
 mod py_err;
 mod records;
@@ -21,6 +22,8 @@ use pyo3_stub_gen::define_stub_info_gatherer;
 fn evtx(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<crate::parser::PyEvtxParser>()?;
     m.add_class::<crate::records::PyRecordsIterator>()?;
+    m.add_class::<crate::header::PyFileHeader>()?;
+    m.add_class::<crate::header::PyChunkHeader>()?;
     #[cfg(feature = "wevt_templates")]
     m.add_class::<crate::wevt_cache::PyWevtCache>()?;
     #[cfg(feature = "wevt_templates")]

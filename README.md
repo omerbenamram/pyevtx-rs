@@ -170,6 +170,41 @@ from evtx import PyEvtxParser
 parser = PyEvtxParser("log.evtx", mta="LocaleMetaData/log_1033.MTA")
 ```
 
+### File and chunk headers
+
+`parser.header` gives what the log's file header says, and `parser.chunks()`
+what each chunk's header says, without parsing any record, much as
+`evtx_dump info` shows them. They help with triaging dirty, wrapped or damaged logs:
+
+```python
+from evtx import PyEvtxParser
+
+parser = PyEvtxParser("log.evtx")
+header = parser.header
+print(header.major_version, header.minor_version, header.is_dirty, header.next_record_id)
+if not header.checksum_valid:
+    print("the file header is damaged; its chunks are still read")
+
+for chunk in parser.chunks():
+    print(
+        chunk.number,
+        chunk.first_event_record_id,
+        chunk.last_event_record_id,
+        chunk.header_checksum_valid,
+        chunk.events_checksum_valid,
+    )
+
+# chunks() leaves the parser to the records.
+for record in parser.records():
+    ...
+```
+
+The chunks come in the order `records()` reads them, from the one that holds
+the oldest records, so a log that has wrapped around starts in the middle of
+the file. `number` is a chunk's place in the file, and an error about a record
+names its chunk by it. The checksums are checked whatever `validate_checksums`
+says.
+
 ### Record timestamps and event timestamps
 
 Each result contains two independently stored timestamps:

@@ -38,7 +38,7 @@ def test_string_cache_error_identifies_records_and_offset(small_sample: str):
     with pytest.raises(RuntimeError) as raised:
         next(records)
     message = str(raised.value)
-    assert f"record IDs {first_id}..{last_id}" in message
+    assert f"Failed to parse chunk number 0 (record IDs {first_id}..{last_id})" in message
     assert "Failed to build string cache" in message
     assert "offset 65535" in message
 

@@ -19,9 +19,25 @@ and this project adheres to
   `.MTA` file to each record as a `RenderingInfo` element. A file that can't
   be read raises `OSError` (`FileNotFoundError` when missing), and one that
   isn't an `.MTA` file raises `ValueError`.
+- `PyEvtxParser.header` is what the log's file header says, as a
+  `FileHeader`: its version, flags, chunk numbers and next record ID, and
+  whether its CRC32 matches. `PyEvtxParser.chunks()` returns a `ChunkHeader`
+  for each chunk, without parsing records: its number and offset in the file,
+  its record numbers and IDs, its flags, and whether its header's and records'
+  CRC32s match, much as `evtx_dump info` shows them.
 
 ### Changed
 
+- Update the Rust parser to `evtx 0.15.0`. Records render as Windows renders
+  them in many more ways, which changes the XML and JSON: timestamps have
+  seven fractional digits, GUIDs are lowercase and in braces, elements that
+  depend on a NULL value are left out, consecutive `Data` elements of one name
+  are one JSON array, empty elements are `<X/>`, and a log that has wrapped
+  around comes out oldest record first. evtx's CHANGELOG lists every change.
+- An error about a record says where the record is: `Failed to read the record
+  at offset 0x200 of chunk 1 (file offset 0x11200)`. A chunk that can't be
+  parsed says `Failed to parse chunk number 1 (record IDs 8..14)`,
+  where it said `Failed to parse chunk containing record IDs 8..14`.
 - `number_of_threads` works: it had no effect, and records were parsed one
   chunk at a time on the calling thread, with the GIL held. The records
   iterators now parse that many chunks at a time on Rust threads, with the
