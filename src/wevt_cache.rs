@@ -152,13 +152,13 @@ impl PyWevtCache {
     /// can have different templates across schema versions.
     ///
     /// Example:
-    ///     >>> cache = WevtCache.from_system()
+    ///     >>> cache = WevtCache.load("cache.wevtcache")
     ///     >>> template_guid = cache.resolve_template_guid(
     ///     ...     provider_guid="{54849625-5478-4994-a5ba-3e3b0328c30d}",
     ///     ...     event_id=4624,
     ///     ...     version=2
     ///     ... )
-    ///     >>> template = cache.get_template(template_guid)
+    ///     >>> xml = cache.render_template_xml(template_guid, substitutions)
     fn resolve_template_guid(
         &self,
         provider_guid: String,
