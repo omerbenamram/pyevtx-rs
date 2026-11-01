@@ -8,6 +8,18 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- `PyEvtxParser(recover_records=True)` also yields the records left in
+  unallocated chunk space, such as a cleared chunk's, as `evtx_dump
+  --recover-records` does. Each record dict has a new `recovered` key, `True`
+  for those records and `False` for live ones. Carved records that can't be
+  parsed are left out, as in evtx.
+- `PyEvtxParser(mta=path)` adds the localized strings of a LocaleMetaData
+  `.MTA` file to each record as a `RenderingInfo` element. A file that can't
+  be read raises `OSError` (`FileNotFoundError` when missing), and one that
+  isn't an `.MTA` file raises `ValueError`.
+
 ### Changed
 
 - Switched to upstream `pyo3-stub-gen` 0.23.2, which supports PyO3 0.30, and

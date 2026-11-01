@@ -60,3 +60,21 @@ def test_skip_errors_does_not_swallow_io_exceptions(small_sample):
     stream.close()
     with pytest.raises(OSError, match="closed file"):
         next(records)
+
+
+@pytest.mark.parametrize("method", ["records", "records_json"])
+def test_recover_records_yields_the_records_of_a_cleared_chunk(small_sample, method):
+    live = list(getattr(PyEvtxParser(small_sample), method)())
+    assert len(live) == 7
+    assert not any(record["recovered"] for record in live)
+
+    # A cleared chunk: its free space starts right after its header, so none of the records
+    # still in its data area are live.
+    source = bytearray(Path(small_sample).read_bytes())
+    source[4096 + 48 : 4096 + 52] = (512).to_bytes(4, "little")
+    assert list(getattr(PyEvtxParser(io.BytesIO(source)), method)()) == []
+
+    parser = PyEvtxParser(io.BytesIO(source), recover_records=True)
+    recovered = list(getattr(parser, method)())
+    assert all(record["recovered"] for record in recovered)
+    assert [{**record, "recovered": False} for record in recovered] == live

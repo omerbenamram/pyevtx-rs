@@ -20,6 +20,17 @@ pub(crate) fn error_message(error: &(dyn Error + 'static)) -> String {
     message
 }
 
+/// An `.MTA` file that can't be read raises `OSError` (`FileNotFoundError` when it is missing),
+/// and one that can't be parsed `ValueError`.
+pub(crate) fn py_err_from_mta_error(e: evtx_rs::mta::MtaError) -> PyErr {
+    match &e {
+        evtx_rs::mta::MtaError::Io { source, .. } => {
+            io_error_with_message(source, error_message(&e))
+        }
+        _ => PyValueError::new_err(e.to_string()),
+    }
+}
+
 pub(crate) fn py_err_from_io_err(e: &io::Error) -> PyErr {
     io_error_with_message(e, e.to_string())
 }

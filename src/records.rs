@@ -35,6 +35,7 @@ fn record_to_pydict(
     pyrecord.set_item("event_record_id", record.event_record_id)?;
     pyrecord.set_item("timestamp", timestamp_to_py_string(&record.timestamp))?;
     pyrecord.set_item("data", record.data)?;
+    pyrecord.set_item("recovered", record.recovered)?;
     Ok(pyrecord)
 }
 
@@ -107,17 +108,28 @@ impl PyRecordsIterator {
                             Ok(mut chunk) => {
                                 let records: Vec<_> = chunk
                                     .iter()
-                                    .map(|record| {
-                                        let record = record?;
+                                    .filter_map(|record| {
+                                        let record = match record {
+                                            Ok(record) => record,
+                                            Err(error) => return Some(Err(error)),
+                                        };
                                         let record_id = record.event_record_id;
+                                        let recovered = record.recovered;
                                         let rendered = match self.output_format {
                                             OutputFormat::XML => record.into_xml(),
                                             OutputFormat::JSON => record.into_json(),
                                         };
-                                        rendered.map_err(|source| EvtxError::FailedToParseRecord {
-                                            record_id,
-                                            source: Box::new(source),
-                                        })
+                                        match rendered {
+                                            // A carved record that can't be rendered is noise,
+                                            // as in evtx's own record iterators.
+                                            Err(_) if recovered => None,
+                                            rendered => Some(rendered.map_err(|source| {
+                                                EvtxError::FailedToParseRecord {
+                                                    record_id,
+                                                    source: Box::new(source),
+                                                }
+                                            })),
+                                        }
                                     })
                                     .collect();
 

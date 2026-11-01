@@ -3,19 +3,21 @@ use std::sync::Arc;
 
 use pyo3::prelude::*;
 use pyo3::{
-    exceptions::PyNotImplementedError, exceptions::PyRuntimeError, exceptions::PyValueError,
+    exceptions::PyNotImplementedError, exceptions::PyRuntimeError, exceptions::PyTypeError,
+    exceptions::PyValueError,
 };
 use pyo3_stub_gen::derive::*;
 
+use evtx_rs::mta::MtaFile;
 use evtx_rs::{AnsiCodec, EvtxParser, ParserSettings};
 
-use crate::file_like::{FileOrFileLike, ReadSeek};
-use crate::py_err::PyEvtxError;
+use crate::file_like::{path_string_from_pyany, FileOrFileLike, ReadSeek};
+use crate::py_err::{py_err_from_mta_error, PyEvtxError};
 use crate::records::{OutputFormat, PyRecordsIterator};
 
 #[gen_stub_pyclass]
 #[pyclass]
-/// PyEvtxParser(path_or_file_like, number_of_threads=None, ansi_codec=None, validate_checksums=None, separate_json_attributes=None, indent=None, wevt_cache=None, skip_errors=False)
+/// PyEvtxParser(path_or_file_like, number_of_threads=None, ansi_codec=None, validate_checksums=None, separate_json_attributes=None, indent=None, wevt_cache=None, skip_errors=False, recover_records=False, mta=None)
 /// --
 ///
 /// Returns an instance of the parser.
@@ -49,6 +51,16 @@ use crate::records::{OutputFormat, PyRecordsIterator};
 ///     `skip_errors` (bool, optional): when set, a record or chunk that can't be parsed
 ///         emits a `RuntimeWarning` and iteration goes on, instead of raising
 ///         `RuntimeError`. Off by default.
+///
+///     `recover_records` (bool, optional): also yield the records left in unallocated chunk
+///         space, such as those of a cleared chunk or in the slack after a chunk's last
+///         record. They have `recovered` set to `True`, and the ones that can't be parsed
+///         are left out. Off by default.
+///
+///     `mta` (str or `os.PathLike`, optional): the path of an `.MTA` file, from the
+///         `LocaleMetaData` folder Windows saves next to a log exported with display
+///         information. Each record then gets a `RenderingInfo` element with its message
+///         and its level, task, opcode and keyword names, in the file's language.
 pub struct PyEvtxParser {
     pub(crate) inner: Option<EvtxParser<Box<dyn ReadSeek>>>,
     pub(crate) configuration: ParserSettings,
@@ -67,9 +79,13 @@ impl PyEvtxParser {
         separate_json_attributes=None,
         indent=None,
         wevt_cache=None,
-        skip_errors=false
+        skip_errors=false,
+        recover_records=false,
+        mta=None
     ))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
+        py: Python<'_>,
         path_or_file_like: Py<PyAny>,
         number_of_threads: Option<usize>,
         ansi_codec: Option<String>,
@@ -78,6 +94,8 @@ impl PyEvtxParser {
         indent: Option<bool>,
         wevt_cache: Option<Py<PyAny>>,
         skip_errors: bool,
+        recover_records: bool,
+        mta: Option<Py<PyAny>>,
     ) -> PyResult<Self> {
         let file_or_file_like = FileOrFileLike::from_pyobject(path_or_file_like)?;
 
@@ -98,6 +116,14 @@ impl PyEvtxParser {
         }
         if let Some(indent) = indent {
             configuration = configuration.indent(indent);
+        }
+        configuration = configuration.recover_records(recover_records);
+        if let Some(mta) = mta {
+            let path = path_string_from_pyany(mta.bind(py))?.ok_or_else(|| {
+                PyErr::new::<PyTypeError, _>("mta must be a path (str or os.PathLike)")
+            })?;
+            let mta = MtaFile::from_path(path).map_err(py_err_from_mta_error)?;
+            configuration = configuration.mta(Some(Arc::new(mta)));
         }
 
         if let Some(wevt_cache) = wevt_cache {
