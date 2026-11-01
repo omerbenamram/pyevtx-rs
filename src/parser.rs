@@ -15,24 +15,40 @@ use crate::records::{OutputFormat, PyRecordsIterator};
 
 #[gen_stub_pyclass]
 #[pyclass]
-/// PyEvtxParser(self, path_or_file_like, number_of_threads=0, ansi_codec='windows-1252', /)
+/// PyEvtxParser(path_or_file_like, number_of_threads=None, ansi_codec=None, validate_checksums=None, separate_json_attributes=None, indent=None, wevt_cache=None, skip_errors=False)
 /// --
 ///
 /// Returns an instance of the parser.
 ///
 /// Args:
-///     `path_or_file_like`: a path (string), or a file-like object.
+///     `path_or_file_like`: a path (str or `os.PathLike`), or a binary file-like object
+///         with `read` and `seek`.
 ///
-///     `number_of_threads` (int, optional):
-///            limit the number of worker threads used by rust.
-///            `0` (the default) will let the library decide how many threads to use
-///            based on the number of cores available.
+///     `number_of_threads` (int, optional): the most worker threads the parser may use;
+///         `0`, the default, uses one per core. Records are currently parsed one chunk at
+///         a time on the calling thread, so this has no effect yet.
 ///
-///     `ansi_codec`(str, optional) to control encoding of ansi strings inside the evtx file.
+///     `ansi_codec` (str, optional): the encoding of the ANSI strings inside the log. Any
+///         ASCII-compatible WHATWG Encoding Standard label, such as windows-1252 (the
+///         default), windows-1251, iso-8859-2, koi8-r, gbk, shift_jis or utf-8. `ascii`
+///         and `iso-8859-1` map to windows-1252.
 ///
-///                  Any ASCII-compatible WHATWG Encoding Standard label, such as
-///                  windows-1252 (the default), windows-1251, iso-8859-2, koi8-r,
-///                  gbk, shift_jis or utf-8. `ascii` and `iso-8859-1` map to windows-1252.
+///     `validate_checksums` (bool, optional): check each chunk's header and records
+///         against their CRC32s, and fail on a chunk that doesn't match. Off by default.
+///
+///     `separate_json_attributes` (bool, optional): in JSON, put an element's attributes
+///         in an object of their own, `<name>_attributes`, instead of under
+///         `#attributes`. Off by default.
+///
+///     `indent` (bool, optional): indent the XML and JSON. On by default.
+///
+///     `wevt_cache` (WevtCache, str or `os.PathLike`, optional): `WEVT_TEMPLATE` templates,
+///         as a `WevtCache` or the path of a `.wevtcache` file, to render the records
+///         whose template the log is missing or can't read.
+///
+///     `skip_errors` (bool, optional): when set, a record or chunk that can't be parsed
+///         emits a `RuntimeWarning` and iteration goes on, instead of raising
+///         `RuntimeError`. Off by default.
 pub struct PyEvtxParser {
     pub(crate) inner: Option<EvtxParser<Box<dyn ReadSeek>>>,
     pub(crate) configuration: ParserSettings,

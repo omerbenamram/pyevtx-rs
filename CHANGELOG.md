@@ -13,6 +13,17 @@ and this project adheres to
 - Switched to upstream `pyo3-stub-gen` 0.23.2, which supports PyO3 0.30, and
   removed the vendored copy under `vendor/`. Generated stubs are unchanged.
 
+### Fixed
+
+- `PyEvtxParser`'s docstring listed 3 of its 8 arguments, with a signature
+  that marked them positional-only. It now describes all of them, and
+  `inspect.signature(PyEvtxParser)` gives the real one. It also says that
+  `number_of_threads` has no effect yet: records are parsed one chunk at a
+  time on the calling thread.
+- The `WevtCache.resolve_template_guid` example called `from_system()` and
+  `get_template()`, which don't exist. It now uses `load()` and
+  `render_template_xml()`.
+
 ### Security
 
 - Refreshed `Cargo.lock` (`crossbeam-epoch` 0.9.21, RUSTSEC-2026-0204) and
