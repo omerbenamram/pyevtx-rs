@@ -131,6 +131,37 @@ exceptions still propagate, and warnings configured as errors still stop the
 iteration. Use Python's `warnings` module to capture these diagnostics; the
 iterator always yields record dictionaries, never exception objects.
 
+### Recovering deleted records
+
+Records can outlive their chunk's live area: clearing a log, for one, resets its
+chunks but leaves the old records in them. `recover_records=True` also yields
+the records found in that unallocated space, with `record["recovered"]` set to
+`True` (it is `False` for live records). Carved records that can't be parsed
+are left out.
+
+```python
+from evtx import PyEvtxParser
+
+parser = PyEvtxParser("log.evtx", recover_records=True)
+for record in parser.records_json():
+    if record["recovered"]:
+        print("recovered", record["event_record_id"])
+```
+
+### Localized strings from `.MTA` files
+
+A log saved from Event Viewer with display information has a `LocaleMetaData`
+folder next to it, with an `.MTA` file for each language. Pass one as `mta=`,
+and each record gets a `RenderingInfo` element with its message and its level,
+task, opcode and keyword names, so that a log from another machine renders
+with its strings:
+
+```python
+from evtx import PyEvtxParser
+
+parser = PyEvtxParser("log.evtx", mta="LocaleMetaData/log_1033.MTA")
+```
+
 ### Record timestamps and event timestamps
 
 Each result contains two independently stored timestamps:

@@ -57,7 +57,7 @@ class Provider:
 @typing.final
 class PyEvtxParser:
     r"""
-    PyEvtxParser(path_or_file_like, number_of_threads=None, ansi_codec=None, validate_checksums=None, separate_json_attributes=None, indent=None, wevt_cache=None, skip_errors=False)
+    PyEvtxParser(path_or_file_like, number_of_threads=None, ansi_codec=None, validate_checksums=None, separate_json_attributes=None, indent=None, wevt_cache=None, skip_errors=False, recover_records=False, mta=None)
     --
     
     Returns an instance of the parser.
@@ -91,8 +91,18 @@ class PyEvtxParser:
         `skip_errors` (bool, optional): when set, a record or chunk that can't be parsed
             emits a `RuntimeWarning` and iteration goes on, instead of raising
             `RuntimeError`. Off by default.
+    
+        `recover_records` (bool, optional): also yield the records left in unallocated chunk
+            space, such as those of a cleared chunk or in the slack after a chunk's last
+            record. They have `recovered` set to `True`, and the ones that can't be parsed
+            are left out. Off by default.
+    
+        `mta` (str or `os.PathLike`, optional): the path of an `.MTA` file, from the
+            `LocaleMetaData` folder Windows saves next to a log exported with display
+            information. Each record then gets a `RenderingInfo` element with its message
+            and its level, task, opcode and keyword names, in the file's language.
     """
-    def __new__(cls, path_or_file_like: typing.Any, number_of_threads: typing.Optional[builtins.int] = None, ansi_codec: typing.Optional[builtins.str] = None, validate_checksums: typing.Optional[builtins.bool] = None, separate_json_attributes: typing.Optional[builtins.bool] = None, indent: typing.Optional[builtins.bool] = None, wevt_cache: typing.Optional[typing.Any] = None, skip_errors: builtins.bool = False) -> PyEvtxParser: ...
+    def __new__(cls, path_or_file_like: typing.Any, number_of_threads: typing.Optional[builtins.int] = None, ansi_codec: typing.Optional[builtins.str] = None, validate_checksums: typing.Optional[builtins.bool] = None, separate_json_attributes: typing.Optional[builtins.bool] = None, indent: typing.Optional[builtins.bool] = None, wevt_cache: typing.Optional[typing.Any] = None, skip_errors: builtins.bool = False, recover_records: builtins.bool = False, mta: typing.Optional[typing.Any] = None) -> PyEvtxParser: ...
     def records(self) -> PyRecordsIterator:
         r"""
         records(self, /)
