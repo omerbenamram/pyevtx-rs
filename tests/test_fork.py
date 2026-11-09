@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import multiprocessing
-import os
 
 import pytest
 
 from evtx import PyEvtxParser
+
+from test_threads import numbered_log
 
 
 pytestmark = pytest.mark.skipif(
@@ -38,9 +39,41 @@ def test_a_forked_child_parses_after_its_parent_did(small_sample: str) -> None:
     assert count_records(small_sample) == expected
 
 
-def test_one_thread_needs_no_pool(small_sample: str) -> None:
-    before = len(os.listdir("/proc/self/task")) if os.path.isdir("/proc/self/task") else None
-    records = sum(1 for _ in PyEvtxParser(small_sample, number_of_threads=1).records())
-    assert records > 0
-    if before is not None:
-        assert len(os.listdir("/proc/self/task")) == before
+# What a forked child inherits: arguments to it would be pickled.
+inherited = None
+
+
+def finish(iterator=None) -> tuple[int, list[str]]:
+    iterator = inherited if iterator is None else iterator
+    records, errors = 0, []
+    while True:
+        try:
+            next(iterator)
+            records += 1
+        except StopIteration:
+            return records, errors
+        except RuntimeError as error:
+            errors.append(str(error))
+
+
+def test_an_iterator_started_before_the_fork_says_what_it_lost(tmp_path, small_sample) -> None:
+    # Enough chunks that some are still to be read when the process forks.
+    log = tmp_path / "many.evtx"
+    log.write_bytes(numbered_log(small_sample, 64))
+    total = count_records(str(log))
+    assert total == 64 * 7
+
+    iterator = PyEvtxParser(str(log), number_of_threads=2).records()
+    next(iterator)
+    # The chunks being parsed stay with the parent's threads; the child reads on after them.
+    global inherited
+    inherited = iterator
+    try:
+        records, errors = run_in_fork(finish)
+    finally:
+        inherited = None
+
+    assert len(errors) == 1 and "forked" in errors[0], errors
+    assert 0 < records < total - 1
+    # The parent's iterator is unaffected.
+    assert finish(iterator) == (total - 1, [])

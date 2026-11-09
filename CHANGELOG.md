@@ -16,7 +16,10 @@ and this project adheres to
   global thread pool, whose threads don't exist in the child. Chunks are now
   parsed on a pool of pyevtx's own, which a forked child replaces with a new
   one, and which is started by the first parse instead of by creating a parser.
-  0.14.1 and earlier are not affected.
+  0.14.1 and earlier are not affected. An iterator that was already going when
+  the process forked raises one `RuntimeError` in the child for the chunks that
+  were being parsed, instead of waiting for them forever, and then goes on.
+  The pool still has `RAYON_NUM_THREADS` threads when that is set.
 
 ## [0.15.0 - 2026-11-01]
 

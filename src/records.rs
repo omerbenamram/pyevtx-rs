@@ -119,6 +119,7 @@ impl PyRecordsIterator {
             settings,
             output_format,
             num_threads,
+            process: std::process::id(),
             next_in: 0,
             next_out: 0,
             exhausted: false,
@@ -177,6 +178,8 @@ struct ChunkPipeline {
     settings: Arc<ParserSettings>,
     output_format: OutputFormat,
     num_threads: usize,
+    /// The process that handed out the chunks being parsed: its pool's threads have them.
+    process: u32,
     /// Chunks are numbered in the order they are read. Those from `next_out` up to `next_in`
     /// are being parsed, or wait in `parsed` for the ones before them.
     next_in: u64,
@@ -209,6 +212,17 @@ impl ChunkPipeline {
             if self.next_out == self.next_in {
                 return None;
             }
+            if self.process != std::process::id() {
+                // The threads that were parsing the chunks in flight stayed in the parent.
+                self.process = std::process::id();
+                self.parsed.clear();
+                let lost = self.next_in - self.next_out;
+                self.next_out = self.next_in;
+                return Some(ChunkRecords::failed(PyRuntimeError::new_err(format!(
+                    "The process forked while {lost} chunk(s) were being parsed, and their \
+                     records are lost. Create the parser after the fork."
+                ))));
+            }
             let (number, parsed) = self.receiver.recv().expect("the pipeline keeps a sender");
             self.parsed.insert(number, parsed);
         }
@@ -221,6 +235,9 @@ impl ChunkPipeline {
                 self.exhausted = true;
                 break;
             };
+            if self.next_in == self.next_out {
+                self.process = std::process::id();
+            }
             let number = self.next_in;
             self.next_in += 1;
             let chunk = match chunk {
@@ -231,27 +248,22 @@ impl ChunkPipeline {
                     continue;
                 }
             };
-            // Asked for each time: after a fork, the pool is a new one (see `crate::pool`).
-            let pool = match crate::pool::pool() {
-                Ok(pool) => pool,
-                Err(e) => {
-                    let error = PyRuntimeError::new_err(format!(
-                        "Failed to start the threads that parse chunks: {e}"
-                    ));
-                    self.parsed.insert(number, Ok(ChunkRecords::failed(error)));
-                    continue;
-                }
-            };
             let settings = Arc::clone(&self.settings);
             let (output_format, sender) = (self.output_format, self.sender.clone());
-            pool.spawn(move || {
+            let parse = move || {
                 // A panic is passed on to the caller: left to rayon, it would abort the process.
                 let parsed = panic::catch_unwind(AssertUnwindSafe(|| {
                     chunk_records(chunk, &settings, output_format)
                 }));
                 // The receiver is gone if the iterator was dropped.
                 let _ = sender.send((number, parsed));
-            });
+            };
+            // Asked for each time: after a fork, the pool is a new one (see `crate::pool`).
+            match crate::pool::pool() {
+                Ok(pool) => pool.spawn(parse),
+                // Without threads (a process at its limit of them), this one parses.
+                Err(_) => parse(),
+            }
         }
     }
 }
