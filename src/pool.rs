@@ -30,9 +30,12 @@ pub(crate) fn pool() -> Result<Arc<ThreadPool>, rayon::ThreadPoolBuildError> {
     // The lock is held only to look and to store, never while threads start: a fork in
     // another thread copies a lock that is held, and nothing in the child would release it.
     let lock = || POOL.lock().unwrap_or_else(PoisonError::into_inner);
-    match &*lock() {
-        Some((owner, pool)) if *owner == process => return Ok(Arc::clone(pool)),
-        _ => {}
+    let ours = |slot: &Option<(u32, Arc<ThreadPool>)>| match slot {
+        Some((owner, pool)) if *owner == process => Some(Arc::clone(pool)),
+        _ => None,
+    };
+    if let Some(pool) = ours(&lock()) {
+        return Ok(pool);
     }
     let new = Arc::new(
         ThreadPoolBuilder::new()
@@ -41,10 +44,9 @@ pub(crate) fn pool() -> Result<Arc<ThreadPool>, rayon::ThreadPoolBuildError> {
             .build()?,
     );
     let mut pool = lock();
-    match &*pool {
-        // Another thread made one meanwhile.
-        Some((owner, pool)) if *owner == process => return Ok(Arc::clone(pool)),
-        _ => {}
+    // Another thread made one meanwhile.
+    if let Some(pool) = ours(&pool) {
+        return Ok(pool);
     }
     if let Some((_, parents)) = pool.replace((process, Arc::clone(&new))) {
         // Its threads are the parent's: there is nothing to stop here, and dropping it would

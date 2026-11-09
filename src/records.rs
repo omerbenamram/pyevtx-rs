@@ -235,6 +235,7 @@ impl ChunkPipeline {
                 self.exhausted = true;
                 break;
             };
+            // With chunks in flight, it stays the process whose threads have them.
             if self.next_in == self.next_out {
                 self.process = std::process::id();
             }
