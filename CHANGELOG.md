@@ -8,6 +8,16 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- Parsing in a forked child process hung forever once the parent had created a
+  parser: a `multiprocessing` pool with the fork start method (the default on
+  Linux before Python 3.14) never returned. 0.15.0 parses chunks on rayon's
+  global thread pool, whose threads don't exist in the child. Chunks are now
+  parsed on a pool of pyevtx's own, which a forked child replaces with a new
+  one, and which is started by the first parse instead of by creating a parser.
+  0.14.1 and earlier are not affected.
+
 ## [0.15.0 - 2026-11-01]
 
 This release is built on evtx 0.15.1, in which records render as Windows

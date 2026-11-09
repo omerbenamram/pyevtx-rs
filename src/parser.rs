@@ -107,9 +107,9 @@ impl PyEvtxParser {
 
         let codec = resolve_ansi_codec(ansi_codec)?;
 
-        // Chunks are parsed on rayon's pool, so more threads than it has would only hold more
-        // chunks in memory.
-        let pool_threads = rayon::current_num_threads();
+        // Chunks are parsed on a pool with a thread per core, so more threads than it has
+        // would only hold more chunks in memory.
+        let pool_threads = crate::pool::num_threads();
         let num_threads = match number_of_threads.unwrap_or(0) {
             0 => pool_threads,
             n => n.min(pool_threads),

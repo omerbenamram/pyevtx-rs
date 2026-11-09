@@ -170,7 +170,7 @@ impl Records {
     }
 }
 
-/// Parses a log's chunks on rayon's pool, `num_threads` at a time, while the records of the
+/// Parses a log's chunks on the pool of `crate::pool`, `num_threads` at a time, while the records of the
 /// chunks before them are returned, and returns each chunk's records in the log's order.
 struct ChunkPipeline {
     chunks: IntoIterChunks<Box<dyn ReadSeek>>,
@@ -231,9 +231,20 @@ impl ChunkPipeline {
                     continue;
                 }
             };
+            // Asked for each time: after a fork, the pool is a new one (see `crate::pool`).
+            let pool = match crate::pool::pool() {
+                Ok(pool) => pool,
+                Err(e) => {
+                    let error = PyRuntimeError::new_err(format!(
+                        "Failed to start the threads that parse chunks: {e}"
+                    ));
+                    self.parsed.insert(number, Ok(ChunkRecords::failed(error)));
+                    continue;
+                }
+            };
             let settings = Arc::clone(&self.settings);
             let (output_format, sender) = (self.output_format, self.sender.clone());
-            rayon::spawn(move || {
+            pool.spawn(move || {
                 // A panic is passed on to the caller: left to rayon, it would abort the process.
                 let parsed = panic::catch_unwind(AssertUnwindSafe(|| {
                     chunk_records(chunk, &settings, output_format)
