@@ -11,6 +11,9 @@ module-name = "evtx._native"
 # `rust-toolchain`, which would have rustup fetch a toolchain on the machine that builds.
 exclude = [
     { path = ".github/**", format = "sdist" },
+    { path = ".claude/**", format = "sdist" },
+    { path = "AGENTS.md", format = "sdist" },
+    { path = "CLAUDE.md", format = "sdist" },
     { path = ".zed/**", format = "sdist" },
     { path = ".dockerignore", format = "sdist" },
     { path = ".gitignore", format = "sdist" },
