@@ -29,8 +29,8 @@ Supported platforms are:
 
 ### Installation from sources
 
-Each release also has a source distribution on PyPI, which `pip install evtx` builds on
-platforms and Python versions without a wheel. This requires a Rust compiler (stable); pip
+Releases after 0.15.0 also have a source distribution on PyPI, which `pip install evtx` builds
+on platforms and Python versions without a wheel. This requires a Rust compiler (stable); pip
 installs the build tool, Maturin, by itself. PyPy is not tested.
 
 To build from a checkout, run `pip install .`, or `pip install -e .` to keep working on it.
