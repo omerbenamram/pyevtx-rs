@@ -6,12 +6,10 @@ authors = ["Omer Ben-Amram <omerbenamram@gmail.com>"]
 edition = "2018"
 license = "MIT/Apache-2.0"
 readme = "README.md"
-# The sdist holds these paths and nothing else (maturin adds `pyproject.toml`): what a build
-# and its tests need. A new tooling file stays out without a change here, and so does
-# `rust-toolchain`, which would have rustup fetch a toolchain on the machine that builds.
-# The patterns for `python/` and `tests/` name file types because Cargo does not apply
-# `.gitignore` to an `include` list, and a local build leaves the compiled module and
-# `__pycache__` there.
+# The sdist holds only these paths (maturin adds `pyproject.toml`), so a new tooling file stays
+# out, and so does `rust-toolchain`, which would have rustup fetch a toolchain on the machine
+# that builds. `python/` and `tests/` list file types because Cargo does not apply `.gitignore`
+# to `include`, and a local build leaves the compiled module and `__pycache__` there.
 include = [
     "/src/",
     "/examples/",
