@@ -46,7 +46,8 @@ jobs:
           maturin-version: "v1.15.0"
           manylinux: auto
           command: build
-          args: --release --locked -o dist --interpreter python${{ matrix.python }}
+          # Its own directory: `dist` is what is tested and published.
+          args: --release --locked -o dist-instrumented --interpreter python${{ matrix.python }}
         env:
           RUSTFLAGS: "-Cprofile-generate=${{ github.workspace }}/pgo-data"
       - name: Install Rust
@@ -57,7 +58,7 @@ jobs:
       - name: PGO optimize
         run: |
           PATH=$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/:$PATH
-          pip install --no-index --find-links ./dist evtx
+          pip install --no-index --find-links ./dist-instrumented evtx
           echo "Running instrumented binary"
           sudo mkdir -p $PWD/pgo-data
           sudo chmod -R 777 $PWD/pgo-data
@@ -67,6 +68,8 @@ jobs:
           done
           echo "Merging profile data"
           llvm-profdata merge -o $PWD/pgo-data/merged.profdata $PWD/pgo-data
+          # The optimized wheel has the same version, which pip would leave in place.
+          pip uninstall -y evtx
       - uses: PyO3/maturin-action@v1
         with:
           maturin-version: "v1.15.0"
@@ -83,10 +86,7 @@ jobs:
           name: wheels-linux-${{ matrix.python }}
           path: dist
       - run: pip install -U pytest
-      # --force-reinstall: this version may be installed already, as the instrumented build.
-      - run: pip install --force-reinstall --no-index --find-links ./dist evtx
-      - name: Verify the installed wheel is the one in dist
-        run: python scripts/check_installed_wheel.py
+      - run: pip install --no-index --find-links ./dist evtx
       - run: pytest
         env:
           # tests/test_rust_parity.py checks the records against evtx's own over its samples.
@@ -212,10 +212,7 @@ jobs:
           name: wheels-windows-${{ matrix.python }}
           path: dist
       - run: pip install -U pytest
-      # --force-reinstall: this version may be installed already, as the instrumented build.
-      - run: pip install --force-reinstall --no-index --find-links ./dist evtx
-      - name: Verify the installed wheel is the one in dist
-        run: python scripts/check_installed_wheel.py
+      - run: pip install --no-index --find-links ./dist evtx
       - run: pytest
 
   macos:
@@ -253,10 +250,7 @@ jobs:
           name: wheels-macos-${{ matrix.python }}
           path: dist
       - run: pip install -U pytest
-      # --force-reinstall: this version may be installed already, as the instrumented build.
-      - run: pip install --force-reinstall --no-index --find-links ./dist evtx
-      - name: Verify the installed wheel is the one in dist
-        run: python scripts/check_installed_wheel.py
+      - run: pip install --no-index --find-links ./dist evtx
       - run: pytest
 
   macos-aarch64:
@@ -282,7 +276,8 @@ jobs:
           maturin-version: "v1.15.0"
           manylinux: auto
           command: build
-          args: --release --locked -o dist --interpreter python
+          # Its own directory: `dist` is what is tested and published.
+          args: --release --locked -o dist-instrumented --interpreter python
         env:
           RUSTFLAGS: "-Cprofile-generate=${{ github.workspace }}/pgo-data"
       - name: Install Rust
@@ -297,7 +292,7 @@ jobs:
       - name: PGO optimize
         run: |
           PATH=$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/:$PATH
-          pip install --no-index --find-links ./dist evtx
+          pip install --no-index --find-links ./dist-instrumented evtx
           echo "Running instrumented binary"
           sudo mkdir -p $PWD/pgo-data
           sudo chmod -R 777 $PWD/pgo-data
@@ -307,6 +302,8 @@ jobs:
           done
           echo "Merging profile data"
           llvm-profdata merge -o $PWD/pgo-data/merged.profdata $PWD/pgo-data
+          # The optimized wheel has the same version, which pip would leave in place.
+          pip uninstall -y evtx
       - name: Build Optimized Wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -323,10 +320,7 @@ jobs:
           name: wheels-macos-aarch64-${{ matrix.python }}
           path: dist
       - run: pip install -U pytest
-      # --force-reinstall: this version may be installed already, as the instrumented build.
-      - run: pip install --force-reinstall --no-index --find-links ./dist evtx
-      - name: Verify the installed wheel is the one in dist
-        run: python scripts/check_installed_wheel.py
+      - run: pip install --no-index --find-links ./dist evtx
       - run: pytest
 
   release:
