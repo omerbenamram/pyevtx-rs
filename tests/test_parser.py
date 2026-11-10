@@ -104,7 +104,8 @@ def test_it_fails_nicely_on_close_files(small_sample: str):
     with open(small_sample, "rb") as o:
         parser = PyEvtxParser(o)
 
-    with pytest.raises(OSError) as e:
+    # What Python raises for a closed file, as Python raises it.
+    with pytest.raises(ValueError) as e:
         _ = list(parser.records())
 
     assert "closed file" in e.value.args[0]

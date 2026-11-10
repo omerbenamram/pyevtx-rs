@@ -8,6 +8,19 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- An exception that a file-like object's `read()` or `seek()` raises now reaches the caller
+  as it is: the same exception object, whatever its type. It used to come out as a new
+  `OSError` with the message in it (from `PyEvtxParser(...)`), or as a `RuntimeError` that
+  said `Reached EOF` (from the records iterators), which `skip_errors=True` then skipped:
+  a `KeyboardInterrupt` during a read went unseen and the log just looked shorter.
+  `skip_errors=True` never skips such an exception, and it ends the iteration: the next
+  `next()` raises `StopIteration`. With several threads it is raised at once, ahead of the
+  records of chunks read before it. An `InterruptedError` is not raised: the read is tried
+  again. Code that caught `OSError` for a file object closed too early now gets the
+  `ValueError` that Python raises for it.
+
 ### Fixed
 
 - Parsing in a forked child process hung forever once the parent had created a

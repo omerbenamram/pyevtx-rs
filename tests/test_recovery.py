@@ -58,7 +58,7 @@ def test_skip_errors_does_not_swallow_io_exceptions(small_sample):
     stream = io.BytesIO(Path(small_sample).read_bytes())
     records = PyEvtxParser(stream, skip_errors=True).records()
     stream.close()
-    with pytest.raises(OSError, match="closed file"):
+    with pytest.raises(ValueError, match="closed file"):
         next(records)
 
 

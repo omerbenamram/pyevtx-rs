@@ -15,7 +15,7 @@ use pyo3_stub_gen::derive::*;
 use evtx_rs::err::EvtxError;
 use evtx_rs::{EvtxChunkData, IntoIterChunks, ParserSettings};
 
-use crate::file_like::ReadSeek;
+use crate::file_like::{Raised, ReadSeek};
 use crate::py_err::{error_message, PyEvtxError};
 
 #[derive(Copy, Clone, PartialOrd, PartialEq, Eq)]
@@ -48,13 +48,23 @@ struct RecordText {
 struct ChunkRecords {
     text: String,
     records: std::vec::IntoIter<PyResult<RecordText>>,
+    /// What the file-like object raised while this chunk was read. It is the caller's
+    /// exception, not a parse error, and `skip_errors` doesn't skip it.
+    raised: Option<PyErr>,
 }
 
 impl ChunkRecords {
     fn failed(error: PyErr) -> Self {
         ChunkRecords {
-            text: String::new(),
             records: vec![Err(error)].into_iter(),
+            ..Default::default()
+        }
+    }
+
+    fn raised(raised: PyErr) -> Self {
+        ChunkRecords {
+            raised: Some(raised),
+            ..Default::default()
         }
     }
 }
@@ -155,9 +165,11 @@ impl PyRecordsIterator {
         output_format: OutputFormat,
         num_threads: usize,
         skip_errors: bool,
+        raised: Raised,
     ) -> Self {
         let chunks = ChunkPipeline {
             chunks,
+            raised,
             settings,
             output_format,
             num_threads,
@@ -221,21 +233,28 @@ impl PyRecordsIterator {
         *advancing() = Some(this_thread);
         // Dropped before the records are let go of.
         let _advancing = Advancing(&self.advancing);
-        Ok(records.next(py))
+        records.next(py)
     }
 }
 
 impl Records {
-    fn next(&mut self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+    /// As `PyRecordsIterator::advance`: the outer error is what the file-like object raised.
+    fn next(&mut self, py: Python<'_>) -> PyResult<PyResult<Option<Py<PyAny>>>> {
         loop {
+            if let Some(raised) = self.current.raised.take() {
+                return Err(raised);
+            }
             if let Some(record) = self.current.records.next() {
-                let record = record_to_pydict(&self.current.text, record?, py)?;
-                return Ok(Some(record.into_any().unbind()));
+                let record = record.and_then(|record| {
+                    let record = record_to_pydict(&self.current.text, record, py)?;
+                    Ok(Some(record.into_any().unbind()))
+                });
+                return Ok(record);
             }
             let chunks = &mut self.chunks;
             match py.detach(|| chunks.next()) {
                 Some(records) => self.current = records,
-                None => return Ok(None),
+                None => return Ok(Ok(None)),
             }
         }
     }
@@ -245,6 +264,8 @@ impl Records {
 /// chunks before them are returned, and returns each chunk's records in the log's order.
 struct ChunkPipeline {
     chunks: IntoIterChunks<Box<dyn ReadSeek>>,
+    /// What the file-like object raised while `chunks` read it.
+    raised: Raised,
     settings: Arc<ParserSettings>,
     output_format: OutputFormat,
     num_threads: usize,
@@ -265,9 +286,10 @@ impl ChunkPipeline {
     fn next(&mut self) -> Option<ChunkRecords> {
         if self.num_threads == 1 {
             // The one thread is this one.
-            return Some(match self.chunks.next()? {
-                Ok(chunk) => chunk_records(chunk, &self.settings, self.output_format),
-                Err(e) => ChunkRecords::failed(PyEvtxError(e).into()),
+            return Some(match self.read_chunk()? {
+                Ok(Ok(chunk)) => chunk_records(chunk, &self.settings, self.output_format),
+                Ok(Err(e)) => ChunkRecords::failed(PyEvtxError(e).into()),
+                Err(raised) => ChunkRecords::raised(raised),
             });
         }
         loop {
@@ -299,11 +321,27 @@ impl ChunkPipeline {
         }
     }
 
+    /// The next chunk or the error it can't be read with. The outer error is what the
+    /// file-like object raised while it was read, whatever the parser made of that (a chunk
+    /// that failed, or the end of the log). It ends the log: the parser may be anywhere in
+    /// the file by then.
+    fn read_chunk(&mut self) -> Option<Result<evtx_rs::err::Result<EvtxChunkData>, PyErr>> {
+        if self.exhausted {
+            return None;
+        }
+        let chunk = self.chunks.next();
+        if let Some(raised) = self.raised.take() {
+            self.exhausted = true;
+            return Some(Err(raised));
+        }
+        self.exhausted = chunk.is_none();
+        chunk.map(Ok)
+    }
+
     /// Reads chunks and hands them to the pool until `num_threads` are being parsed.
     fn fill(&mut self) {
         while !self.exhausted && self.next_in - self.next_out < self.num_threads as u64 {
-            let Some(chunk) = self.chunks.next() else {
-                self.exhausted = true;
+            let Some(chunk) = self.read_chunk() else {
                 break;
             };
             // With chunks in flight, it stays the process whose threads have them.
@@ -313,11 +351,20 @@ impl ChunkPipeline {
             let number = self.next_in;
             self.next_in += 1;
             let chunk = match chunk {
-                Ok(chunk) => chunk,
-                Err(e) => {
+                Ok(Ok(chunk)) => chunk,
+                Ok(Err(e)) => {
                     let records = ChunkRecords::failed(PyEvtxError(e).into());
                     self.parsed.insert(number, Ok(records));
                     continue;
+                }
+                Err(raised) => {
+                    // The caller gets it now, not after the chunks read before it: it can be
+                    // a `KeyboardInterrupt`. Those chunks' records go with the rest of the log.
+                    self.next_out = number;
+                    self.arrivals = Arc::default();
+                    self.parsed.clear();
+                    self.parsed.insert(number, Ok(ChunkRecords::raised(raised)));
+                    break;
                 }
             };
             let settings = Arc::clone(&self.settings);
@@ -403,6 +450,7 @@ fn chunk_records(
     ChunkRecords {
         text,
         records: records.into_iter(),
+        raised: None,
     }
 }
 
