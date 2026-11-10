@@ -20,6 +20,12 @@ and this project adheres to
   the process forked raises one `RuntimeError` in the child for the chunks that
   were being parsed, instead of waiting for them forever, and then goes on.
   The pool still has `RAYON_NUM_THREADS` threads when that is set.
+- The type stubs said that a record could be `None` and was otherwise `Any`,
+  so type checkers rejected `record["data"]` in a loop over `records()` or
+  `records_json()`. A record is now typed as `dict[str, Any]`, which is what
+  the iterators have always returned. `next()` on a `PyEvtxParser` itself,
+  which always raises `NotImplementedError`, is typed as `NoReturn` instead of
+  as returning a record. Nothing changes at run time.
 
 ## [0.15.0 - 2026-11-01]
 

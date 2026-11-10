@@ -284,13 +284,24 @@ class PyEvtxParser:
         iteration continues. Python warnings filters can promote these warnings to errors.
         Exceptions are never yielded as records.
         """
-    def __iter__(self) -> PyRecordsIterator: ...
-    def __next__(self) -> typing.Optional[typing.Any]: ...
+    def __iter__(self) -> PyRecordsIterator:
+        r"""
+        Iterating over the parser is iterating over `records()`.
+        """
+    def __next__(self) -> typing.NoReturn:
+        r"""
+        Always raises `NotImplementedError`: the parser is not its own iterator. Iterate over
+        it, or over `records()` or `records_json()`.
+        """
 
 @typing.final
 class PyRecordsIterator:
     def __iter__(self) -> PyRecordsIterator: ...
-    def __next__(self) -> typing.Optional[typing.Any]: ...
+    def __next__(self) -> dict[str, typing.Any]:
+        r"""
+        The next record: a dict with its `event_record_id`, its `timestamp`, its `data` (the
+        XML or JSON text) and whether it was `recovered`.
+        """
 
 @typing.final
 class Template:
