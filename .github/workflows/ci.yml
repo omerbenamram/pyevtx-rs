@@ -25,7 +25,7 @@ jobs:
 
   format:
     name: Check formatting
-    # Not for a tag: a release run should not end red over formatting.
+    # Pull requests only: a release run should not end red over formatting.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
