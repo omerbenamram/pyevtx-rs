@@ -3,15 +3,14 @@ use std::sync::Arc;
 
 use pyo3::prelude::*;
 use pyo3::{
-    exceptions::PyNotImplementedError, exceptions::PyRuntimeError, exceptions::PyTypeError,
-    exceptions::PyValueError,
+    exceptions::PyNotImplementedError, exceptions::PyRuntimeError, exceptions::PyValueError,
 };
 use pyo3_stub_gen::derive::*;
 
 use evtx_rs::mta::MtaFile;
 use evtx_rs::{AnsiCodec, EvtxParser, ParserSettings};
 
-use crate::file_like::{path_from_pyany, FileOrFileLike, ReadSeek};
+use crate::file_like::{required_path, FileOrFileLike, ReadSeek};
 use crate::header::{PyChunkHeader, PyFileHeader};
 use crate::py_err::{py_err_from_mta_error, PyEvtxError};
 use crate::records::{warn_skipped, OutputFormat, PyRecordsIterator};
@@ -130,9 +129,7 @@ impl PyEvtxParser {
         }
         configuration = configuration.recover_records(recover_records);
         if let Some(mta) = mta {
-            let path = path_from_pyany(mta.bind(py))?.ok_or_else(|| {
-                PyErr::new::<PyTypeError, _>("mta must be a path (str, bytes or os.PathLike)")
-            })?;
+            let path = required_path(mta.bind(py), "mta")?;
             let mta = MtaFile::from_path(path).map_err(py_err_from_mta_error)?;
             configuration = configuration.mta(Some(Arc::new(mta)));
         }

@@ -35,9 +35,11 @@ and this project adheres to
   (with surrogate escapes, as `os.listdir` and `pathlib` give such names),
   `bytes`, or an `os.PathLike` of either, and reach the file system byte for
   byte. This goes for `PyEvtxParser`'s log, `mta` and `wevt_cache`, and for
-  `WevtCache.load`, `dump`, `add_dll`, `add_dir` and `render_record_xml`. A
-  `str` with a lone surrogate that no file name encodes to raises
-  `UnicodeEncodeError` instead of `FileNotFoundError`.
+  `WevtCache.load`, `dump`, `add_dll`, `add_dir` and `render_record_xml`. On
+  Unix, a `str` with a lone surrogate that no file name encodes to raises
+  `UnicodeEncodeError`, where it was taken as a file that isn't there. A
+  `bytes` object with a NUL byte in it, such as a log's contents, raises a
+  `TypeError` that says to pass `io.BytesIO(data)`.
 
 ### Added
 

@@ -17,7 +17,7 @@ use evtx_rs::binxml::value_variant::BinXmlValue;
 use evtx_rs::wevt_templates::{normalize_guid, render_temp_to_xml_with_values, WevtCache};
 use evtx_rs::{EvtxParser, ParserSettings};
 
-use crate::file_like::{path_from_pyany, FileOrFileLike, ReadSeek};
+use crate::file_like::{path_from_pyany, required_path, FileOrFileLike, ReadSeek};
 use crate::parser::resolve_ansi_codec;
 use crate::py_err::{
     py_err_from_io_err, py_err_from_wevt_cache_error, py_err_from_wevt_cache_file_error,
@@ -56,10 +56,7 @@ impl PyWevtCache {
     /// Load a WEVT template cache file (`.wevtcache`) produced by:
     /// `evtx_dump extract-wevt-templates --output cache.wevtcache ...`
     fn load(py: Python<'_>, path: Py<PyAny>) -> PyResult<Self> {
-        let path = path_from_pyany(path.bind(py))?.ok_or_else(|| {
-            PyErr::new::<PyTypeError, _>("path must be a path (str, bytes or os.PathLike)")
-        })?;
-        let path_buf = path;
+        let path_buf = required_path(path.bind(py), "path")?;
         if path_buf.extension().and_then(|s| s.to_str()) != Some("wevtcache") {
             return Err(PyErr::new::<PyValueError, _>(
                 "expected a `.wevtcache` file",
@@ -77,9 +74,7 @@ impl PyWevtCache {
     ///
     /// This is **strict**: failures to read/parse inputs raise exceptions.
     fn add_dll(&mut self, py: Python<'_>, path: Py<PyAny>) -> PyResult<usize> {
-        let path = path_from_pyany(path.bind(py))?.ok_or_else(|| {
-            PyErr::new::<PyTypeError, _>("path must be a path (str, bytes or os.PathLike)")
-        })?;
+        let path = required_path(path.bind(py), "path")?;
         self.add_pe_file(path)
     }
 
@@ -95,9 +90,7 @@ impl PyWevtCache {
         recursive: bool,
         extensions: Option<String>,
     ) -> PyResult<usize> {
-        let path = path_from_pyany(path.bind(py))?.ok_or_else(|| {
-            PyErr::new::<PyTypeError, _>("path must be a path (str, bytes or os.PathLike)")
-        })?;
+        let path = required_path(path.bind(py), "path")?;
 
         let extensions = extensions.unwrap_or_else(|| "exe,dll,sys".to_string());
         let allowed_exts: std::collections::HashSet<String> = extensions
@@ -124,10 +117,7 @@ impl PyWevtCache {
     ///
     /// Dump this in-memory cache to a single `.wevtcache` file.
     fn dump(&self, py: Python<'_>, path: Py<PyAny>, overwrite: bool) -> PyResult<()> {
-        let path = path_from_pyany(path.bind(py))?.ok_or_else(|| {
-            PyErr::new::<PyTypeError, _>("path must be a path (str, bytes or os.PathLike)")
-        })?;
-        let path_buf = path;
+        let path_buf = required_path(path.bind(py), "path")?;
         if path_buf.extension().and_then(|s| s.to_str()) != Some("wevtcache") {
             return Err(PyErr::new::<PyValueError, _>(
                 "expected a `.wevtcache` file",
