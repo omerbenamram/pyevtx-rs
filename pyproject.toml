@@ -9,23 +9,7 @@ python-source = "python"
 module-name = "evtx._native"
 # Every maturin build keeps Cargo.lock as committed, and fails when it does not fit Cargo.toml.
 locked = true
-# The sdist holds what a build and its tests need: not the repository's own tooling, nor
-# `rust-toolchain`, which would have rustup fetch a toolchain on the machine that builds.
-exclude = [
-    { path = ".github/**", format = "sdist" },
-    { path = ".claude/**", format = "sdist" },
-    { path = "AGENTS.md", format = "sdist" },
-    { path = "CLAUDE.md", format = "sdist" },
-    { path = ".zed/**", format = "sdist" },
-    { path = ".dockerignore", format = "sdist" },
-    { path = ".gitignore", format = "sdist" },
-    { path = "notebooks/**", format = "sdist" },
-    { path = "build_pgo.sh", format = "sdist" },
-    { path = "RELEASING.md", format = "sdist" },
-    { path = "Makefile", format = "sdist" },
-    { path = "rust-toolchain", format = "sdist" },
-    { path = "uv.lock", format = "sdist" },
-]
+# The `include` list in Cargo.toml names what goes into the sdist.
 
 [project]
 name = "evtx"

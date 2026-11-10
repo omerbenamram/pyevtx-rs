@@ -6,6 +6,20 @@ authors = ["Omer Ben-Amram <omerbenamram@gmail.com>"]
 edition = "2018"
 license = "MIT/Apache-2.0"
 readme = "README.md"
+# The sdist holds only these paths, besides what maturin adds itself (`pyproject.toml`,
+# `Cargo.toml`, `Cargo.lock`). A new tooling file stays out, and so does `rust-toolchain`,
+# which would have rustup fetch a toolchain on the machine that builds. Cargo does not apply
+# `.gitignore` to `include`, so build an sdist to publish from a clean checkout, as CI does.
+include = [
+    "/src/",
+    "/examples/",
+    "/python/",
+    "/tests/",
+    "/samples/",
+    "/scripts/",
+    "/README.md",
+    "/CHANGELOG.md",
+]
 
 [lib]
 name = "evtx"
