@@ -27,6 +27,23 @@ and this project adheres to
   which always raises `NotImplementedError`, is typed as `NoReturn` instead of
   as returning a record. Nothing changes at run time.
 
+### Added
+
+- Releases have a source distribution on PyPI next to the wheels. Until now
+  there were only wheels, so `pip install evtx` failed with "no matching
+  distribution" on a platform without one; it now builds the package there,
+  which needs a Rust compiler. CI builds the sdist, builds a wheel from it
+  alone and runs the tests on that wheel before a release.
+
+### Changed
+
+- The package no longer says that it supports PyPy. The classifier was there,
+  but no PyPy wheel was ever built or tested. Building on PyPy from the source
+  distribution is untested.
+- CI tests the abi3 wheel on Python 3.11, 3.12, 3.13 and 3.14 as well as 3.10,
+  the version it is built with. Before, a wheel that every Python from 3.10 up
+  installs was tested on 3.10 alone, next to the free-threaded 3.14 wheel.
+
 ## [0.15.0 - 2026-11-01]
 
 This release is built on evtx 0.15.1, in which records render as Windows

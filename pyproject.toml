@@ -7,9 +7,24 @@ build-backend = "maturin"
 [tool.maturin]
 python-source = "python"
 module-name = "evtx._native"
+# The sdist holds what a build and its tests need: not the repository's own tooling, nor
+# `rust-toolchain`, which would have rustup fetch a toolchain on the machine that builds.
+exclude = [
+    { path = ".github/**", format = "sdist" },
+    { path = ".zed/**", format = "sdist" },
+    { path = ".dockerignore", format = "sdist" },
+    { path = ".gitignore", format = "sdist" },
+    { path = "notebooks/**", format = "sdist" },
+    { path = "build_pgo.sh", format = "sdist" },
+    { path = "RELEASING.md", format = "sdist" },
+    { path = "Makefile", format = "sdist" },
+    { path = "rust-toolchain", format = "sdist" },
+    { path = "uv.lock", format = "sdist" },
+]
 
 [project]
 name = "evtx"
+readme = "README.md"
 requires-python = ">=3.10"
 dynamic = ["version"]
 classifiers = [
@@ -26,7 +41,6 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python",
     "Programming Language :: Rust",
 ]

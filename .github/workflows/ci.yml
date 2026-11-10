@@ -327,6 +327,76 @@ jobs:
       - run: pip install --no-index --find-links ./dist evtx
       - run: pytest
 
+  # The abi3 wheel is built with Python 3.10 and installs on every later version. The jobs
+  # above test it on 3.10; this one tests the same wheels, without rebuilding them, on the
+  # other versions for Linux and on the newest for Windows and macOS.
+  test-abi3:
+    name: Test abi3 wheel (${{ matrix.os }}, Python ${{ matrix.python }})
+    needs: [linux, windows, macos-aarch64]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.11", "3.12", "3.13", "3.14"]
+        wheels: [wheels-linux-3.10]
+        include:
+          - os: windows-latest
+            python: "3.14"
+            wheels: wheels-windows-3.10
+          - os: macos-15
+            python: "3.14"
+            wheels: wheels-macos-aarch64-3.10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ matrix.wheels }}
+          path: dist
+      - run: pip install -U pytest
+      - run: pip install --no-index --find-links ./dist evtx
+      - run: pytest
+
+  # The source distribution, for platforms and interpreters without a wheel. It is built
+  # into a wheel and tested, so what is published is known to compile on its own.
+  sdist:
+    name: Source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          maturin-version: "v1.15.0"
+          command: sdist
+          args: -o dist
+      - name: Check the sdist's metadata as PyPI will
+        run: pipx run twine check --strict dist/*.tar.gz
+      # Outside the checkout, so that nothing of the repository's is found from inside it.
+      - name: Build and install a wheel from the sdist alone
+        run: |
+          pip install -U pytest
+          pip wheel --no-deps -w "$RUNNER_TEMP/sdist-wheel" dist/*.tar.gz
+          pip install --no-index --find-links "$RUNNER_TEMP/sdist-wheel" evtx
+      - name: Test with the sdist's own tests and samples
+        run: |
+          mkdir "$RUNNER_TEMP/unpacked"
+          tar -xzf dist/*.tar.gz -C "$RUNNER_TEMP/unpacked" --strip-components=1
+          cd "$RUNNER_TEMP/unpacked"
+          pytest
+      - name: Upload sdist
+        uses: actions/upload-artifact@v7
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
   release:
     name: Release
     runs-on: ubuntu-latest
@@ -340,6 +410,8 @@ jobs:
         linux-arm64,
         linux-aarch64-musl,
         linux-x86_64-musl,
+        test-abi3,
+        sdist,
       ]
     permissions:
       contents: write
@@ -350,6 +422,10 @@ jobs:
           path: wheels
           pattern: wheels-*
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: sdist
+          path: sdist
       # Before PyPI, which can't be undone.
       - name: Publish GitHub release
         env:
@@ -361,11 +437,11 @@ jobs:
           fi
           # The version's CHANGELOG.md notes, then GitHub's list of merged PRs.
           scripts/release-notes.sh "$GITHUB_REF_NAME" > notes.md
-          gh release create "$GITHUB_REF_NAME" wheels/*.whl --verify-tag \
+          gh release create "$GITHUB_REF_NAME" wheels/*.whl sdist/*.tar.gz --verify-tag \
             --title "$GITHUB_REF_NAME" --notes-file notes.md --generate-notes
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
       - name: Publish to PyPI
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-        run: uv publish --check-url https://pypi.org/simple/ ./wheels/*.whl
+        run: uv publish --check-url https://pypi.org/simple/ ./wheels/*.whl ./sdist/*.tar.gz

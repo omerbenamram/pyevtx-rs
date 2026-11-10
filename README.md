@@ -19,21 +19,21 @@ To install from PyPi - `pip install evtx`
 
 ### Wheels
 
-Wheels are currently automatically built for Python 3.10+ using the abi3 stable ABI tag (compatible with all versions from 3.10 onwards).
+Wheels are built for CPython 3.10 and later, using the abi3 stable ABI tag (one wheel is
+compatible with all versions from 3.10 onwards), and for free-threaded CPython 3.14.
 
 Supported platforms are:
-  - Linux x86_64
-  - macOS x86_64
-  - macOS arm64 (m1)
+  - Linux x86_64 and arm64 (glibc and musl)
+  - macOS x86_64 and arm64
   - Windows x86_64
 
 ### Installation from sources
 
-Installation is possible for other platforms by installing from sources.
+Releases after 0.15.0 also have a source distribution on PyPI, which `pip install evtx` builds
+on platforms and Python versions without a wheel. This requires a Rust compiler (stable); pip
+installs the build tool, Maturin, by itself. PyPy is not tested.
 
-This requires a Rust compiler and a recent enough Setuptools and Pip.
-
-Run `pip install -e .`
+To build from a checkout, run `pip install .`, or `pip install -e .` to keep working on it.
 
 ### Free-threaded Python 3.14
 
