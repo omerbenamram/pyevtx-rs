@@ -83,7 +83,10 @@ jobs:
           name: wheels-linux-${{ matrix.python }}
           path: dist
       - run: pip install -U pytest
-      - run: pip install --no-index --find-links ./dist evtx
+      # --force-reinstall: this version may be installed already, as the instrumented build.
+      - run: pip install --force-reinstall --no-index --find-links ./dist evtx
+      - name: Verify the installed wheel is the one in dist
+        run: python scripts/check_installed_wheel.py
       - run: pytest
         env:
           # tests/test_rust_parity.py checks the records against evtx's own over its samples.
@@ -209,7 +212,10 @@ jobs:
           name: wheels-windows-${{ matrix.python }}
           path: dist
       - run: pip install -U pytest
-      - run: pip install --no-index --find-links ./dist evtx
+      # --force-reinstall: this version may be installed already, as the instrumented build.
+      - run: pip install --force-reinstall --no-index --find-links ./dist evtx
+      - name: Verify the installed wheel is the one in dist
+        run: python scripts/check_installed_wheel.py
       - run: pytest
 
   macos:
@@ -247,7 +253,10 @@ jobs:
           name: wheels-macos-${{ matrix.python }}
           path: dist
       - run: pip install -U pytest
-      - run: pip install --no-index --find-links ./dist evtx
+      # --force-reinstall: this version may be installed already, as the instrumented build.
+      - run: pip install --force-reinstall --no-index --find-links ./dist evtx
+      - name: Verify the installed wheel is the one in dist
+        run: python scripts/check_installed_wheel.py
       - run: pytest
 
   macos-aarch64:
@@ -314,7 +323,10 @@ jobs:
           name: wheels-macos-aarch64-${{ matrix.python }}
           path: dist
       - run: pip install -U pytest
-      - run: pip install --no-index --find-links ./dist evtx
+      # --force-reinstall: this version may be installed already, as the instrumented build.
+      - run: pip install --force-reinstall --no-index --find-links ./dist evtx
+      - name: Verify the installed wheel is the one in dist
+        run: python scripts/check_installed_wheel.py
       - run: pytest
 
   release:

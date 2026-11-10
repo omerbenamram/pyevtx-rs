@@ -20,6 +20,11 @@ and this project adheres to
   the process forked raises one `RuntimeError` in the child for the chunks that
   were being parsed, instead of waiting for them forever, and then goes on.
   The pool still has `RAYON_NUM_THREADS` threads when that is set.
+- The x86_64 Linux and arm64 macOS wheels were never tested as published. CI
+  builds each of them twice, first to collect a profile and then optimized
+  with it, and ran the tests on the first build: `pip install` leaves an
+  installed package of the same version in place. CI now reinstalls the wheel
+  before the tests, and checks that the installed files are the wheel's.
 
 ## [0.15.0 - 2026-11-01]
 
