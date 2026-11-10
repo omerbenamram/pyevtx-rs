@@ -90,7 +90,7 @@ Use plain words and full sentences: short ones, one idea each, in the active voi
 
 - The Python API is the contract. Put a breaking change under `### Breaking changes` in `CHANGELOG.md`, and say what a caller must change.
 - The bindings build on the published `evtx` and `pyo3-file` crates. A change that needs unreleased code of either waits for that crate's release.
-- The wheel jobs build with `--locked`, and `make test` does not, so a local build can change `Cargo.lock` without saying so. Commit `Cargo.lock` whenever the dependencies change.
+- Every maturin build is locked: the wheel jobs pass `--locked`, and `locked = true` in `pyproject.toml` covers `make dev`, `make test` and a build from the sdist. So a build fails when `Cargo.lock` does not fit `Cargo.toml`. When you change the dependencies or `version`, run `cargo check`, which changes only what no longer fits in `Cargo.lock`, and commit the file. `make dev` and `make test` also fail on an out-of-date `uv.lock`: run `uv lock` and commit it.
 - The module runs on free-threaded Python. Keep it safe without the GIL, and keep `tests/test_free_threading.py` and `tests/test_threads.py` passing.
 - `scripts/check_wheel_abi.py` checks the tags of the built wheel. Keep it when you change the build.
 - When you add a tooling file or folder, add it to the sdist `exclude` in `pyproject.toml`; the comment there says what the sdist holds. CI runs the tests from the sdist alone, so a test must not read a file that the sdist leaves out.

@@ -7,6 +7,8 @@ build-backend = "maturin"
 [tool.maturin]
 python-source = "python"
 module-name = "evtx._native"
+# Every maturin build keeps Cargo.lock as committed, and fails when it does not fit Cargo.toml.
+locked = true
 # The sdist holds what a build and its tests need: not the repository's own tooling, nor
 # `rust-toolchain`, which would have rustup fetch a toolchain on the machine that builds.
 exclude = [

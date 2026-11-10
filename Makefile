@@ -6,7 +6,7 @@
 # Generate Python stub files (.pyi) for the evtx Python module
 # The stub_gen binary must be built WITHOUT extension-module feature
 stubs:
-	cargo run --bin stub_gen --no-default-features --features wevt_templates
+	cargo run --locked --bin stub_gen --no-default-features --features wevt_templates
 	@# pyo3-stub-gen >= 0.22 emits the package layout; the wheel ships the flat form
 	@if [ -f python/evtx/_native/__init__.pyi ]; then \
 		mv python/evtx/_native/__init__.pyi python/evtx/_native.pyi; \
@@ -15,11 +15,11 @@ stubs:
 
 # Build and install the package in development mode
 dev:
-	uv run maturin develop --features wevt_templates
+	uv run --locked maturin develop --features wevt_templates
 
 # Run tests
 test: dev
-	uv run pytest tests/ -v
+	uv run --locked pytest tests/ -v
 
 # Clean build artifacts
 clean:
