@@ -170,7 +170,6 @@ impl PyRecordsIterator {
         let chunks = ChunkPipeline {
             chunks,
             raised,
-            pending: None,
             settings,
             output_format,
             num_threads,
@@ -267,8 +266,6 @@ struct ChunkPipeline {
     chunks: IntoIterChunks<Box<dyn ReadSeek>>,
     /// What the file-like object raised while `chunks` read it.
     raised: Raised,
-    /// One that `fill` met, for `next` to return before anything else.
-    pending: Option<PyErr>,
     settings: Arc<ParserSettings>,
     output_format: OutputFormat,
     num_threads: usize,
@@ -311,9 +308,6 @@ impl ChunkPipeline {
                 ))));
             }
             self.fill();
-            if let Some(raised) = self.pending.take() {
-                return Some(ChunkRecords::raised(raised));
-            }
             if let Some(parsed) = self.parsed.remove(&self.next_out) {
                 self.next_out += 1;
                 // Keep `num_threads` chunks being parsed while the caller goes through this one.
@@ -366,10 +360,10 @@ impl ChunkPipeline {
                 Err(raised) => {
                     // The caller gets it now, not after the chunks read before it: it can be
                     // a `KeyboardInterrupt`. Those chunks' records go with the rest of the log.
-                    self.next_out = self.next_in;
-                    self.parsed.clear();
+                    self.next_out = number;
                     self.arrivals = Arc::default();
-                    self.pending = Some(raised);
+                    self.parsed.clear();
+                    self.parsed.insert(number, Ok(ChunkRecords::raised(raised)));
                     break;
                 }
             };

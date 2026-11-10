@@ -14,7 +14,7 @@ use pyo3_stub_gen::derive::*;
 
 use evtx_rs::binxml::value_variant::BinXmlValue;
 use evtx_rs::wevt_templates::{normalize_guid, render_temp_to_xml_with_values, WevtCache};
-use evtx_rs::{EvtxParser, ParserSettings};
+use evtx_rs::ParserSettings;
 
 use crate::file_like::{path_from_pyany, required_path, FileOrFileLike};
 use crate::parser::resolve_ansi_codec;
@@ -254,21 +254,12 @@ impl PyWevtCache {
         // Nudge deterministic behavior if any code path consults this.
         settings = settings.num_threads(1);
 
-        let (reader, raised) = file_or_file_like.into_reader()?;
-        let mut parser = EvtxParser::from_read_seek(reader)
-            .map_err(|error| raised.or(PyEvtxError(error)))?
-            .with_configuration(settings.clone());
+        let (parser, raised) = file_or_file_like.into_parser()?;
+        let mut parser = parser.with_configuration(settings.clone());
 
-        let mut chunks = parser.chunks().enumerate();
-        loop {
-            let chunk = chunks.next();
+        for (chunk_idx, chunk_res) in raised.watch(parser.chunks()).enumerate() {
             // What the file-like object raised, whatever the parser made of it.
-            if let Some(raised) = raised.take() {
-                return Err(raised);
-            }
-            let Some((chunk_idx, chunk_res)) = chunk else {
-                break;
-            };
+            let chunk_res = chunk_res?;
             let mut chunk_data = chunk_res.map_err(PyEvtxError)?;
             let mut chunk = chunk_data.parse(Arc::new(settings.clone())).map_err(|e| {
                 PyEvtxError(evtx_rs::err::EvtxError::FailedToParseChunk {

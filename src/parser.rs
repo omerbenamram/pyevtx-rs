@@ -151,11 +151,8 @@ impl PyEvtxParser {
             }
         }
 
-        let (reader, raised) = file_or_file_like.into_reader()?;
-        let parser = EvtxParser::from_read_seek(reader)
-            // What `read()` raised, as it raised it, rather than an `OSError` made of it.
-            .map_err(|error| raised.or(PyEvtxError(error)))?
-            .with_configuration(configuration.clone());
+        let (parser, raised) = file_or_file_like.into_parser()?;
+        let parser = parser.with_configuration(configuration.clone());
         let header = PyFileHeader::from(parser.header());
 
         Ok(PyEvtxParser {
@@ -198,18 +195,16 @@ impl PyEvtxParser {
         let raised = &self.raised;
         let mut read_raised = None;
         py.detach(|| {
-            let mut chunks = parser.chunks();
-            loop {
-                let chunk = chunks.next();
-                // Not a chunk that can't be read: the reading itself failed, which is not
-                // skipped, and ends the reading.
-                read_raised = raised.take();
-                let (Some(chunk), None) = (chunk, &read_raised) else {
-                    break;
-                };
+            for chunk in raised.watch(parser.chunks()) {
                 match chunk {
-                    Ok(chunk) => headers.push(PyChunkHeader::new(&chunk)),
-                    Err(error) => {
+                    // Not a chunk that can't be read: the reading itself failed, which is
+                    // not skipped, and ends the reading.
+                    Err(raised) => {
+                        read_raised = Some(raised);
+                        break;
+                    }
+                    Ok(Ok(chunk)) => headers.push(PyChunkHeader::new(&chunk)),
+                    Ok(Err(error)) => {
                         errors.push(PyErr::from(PyEvtxError(error)));
                         if !skip_errors {
                             break;

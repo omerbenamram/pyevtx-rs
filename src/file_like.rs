@@ -3,6 +3,10 @@ use pyo3::types::{PyBytes, PyString};
 use pyo3::{exceptions::PyTypeError, PyResult};
 use pyo3_file::PyFileLikeObject;
 
+use evtx_rs::EvtxParser;
+
+use crate::py_err::PyEvtxError;
+
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -33,6 +37,27 @@ impl Raised {
     /// The exception if there is one, and otherwise `error`, which the parser gave.
     pub(crate) fn or(&self, error: impl Into<PyErr>) -> PyErr {
         self.take().unwrap_or_else(|| error.into())
+    }
+
+    /// The items of `reads`, an iterator that reads the file. After the item that the
+    /// file-like object raised during, whatever the parser made of it, comes the exception,
+    /// and nothing else.
+    pub(crate) fn watch<'a, I: Iterator + 'a>(
+        &'a self,
+        mut reads: I,
+    ) -> impl Iterator<Item = PyResult<I::Item>> + 'a {
+        let mut ended = false;
+        std::iter::from_fn(move || {
+            if ended {
+                return None;
+            }
+            let item = reads.next();
+            if let Some(raised) = self.take() {
+                ended = true;
+                return Some(Err(raised));
+            }
+            item.map(Ok)
+        })
     }
 
     fn io<T>(&self, operation: impl FnOnce() -> io::Result<T>) -> io::Result<T> {
@@ -122,8 +147,9 @@ pub(crate) fn required_path(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Path
 }
 
 impl FileOrFileLike {
-    /// The reader, and where what its file-like object raises is kept (nothing, for a path).
-    pub(crate) fn into_reader(self) -> PyResult<(Box<dyn ReadSeek>, Raised)> {
+    /// A parser of the log, and where what its file-like object raises is kept (nothing, for
+    /// a path).
+    pub(crate) fn into_parser(self) -> PyResult<(EvtxParser<Box<dyn ReadSeek>>, Raised)> {
         let raised = Raised::default();
         let reader = match self {
             FileOrFileLike::File(path) => Box::new(std::fs::File::open(path)?) as Box<dyn ReadSeek>,
@@ -132,7 +158,10 @@ impl FileOrFileLike {
                 Box::new(Watched { file, raised })
             }
         };
-        Ok((reader, raised))
+        let parser = EvtxParser::from_read_seek(reader)
+            // What `read()` raised, as it raised it, rather than an `OSError` made of it.
+            .map_err(|error| raised.or(PyEvtxError(error)))?;
+        Ok((parser, raised))
     }
 
     pub(crate) fn from_pyobject(path_or_file_like: Py<PyAny>) -> PyResult<FileOrFileLike> {
