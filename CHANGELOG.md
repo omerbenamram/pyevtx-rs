@@ -27,6 +27,20 @@ and this project adheres to
   which always raises `NotImplementedError`, is typed as `NoReturn` instead of
   as returning a record. Nothing changes at run time.
 
+- A log whose path isn't valid UTF-8 couldn't be opened, which on Linux is any
+  file name with bytes that aren't UTF-8: the path was converted with U+FFFD
+  in their place, and `PyEvtxParser` raised `FileNotFoundError` for a file
+  that is there. A `bytes` path raised `TypeError: Object does not have a
+  .read() method`. Paths are now taken as `open()` takes them, as a `str`
+  (with surrogate escapes, as `os.listdir` and `pathlib` give such names),
+  `bytes`, or an `os.PathLike` of either, and reach the file system byte for
+  byte. This goes for `PyEvtxParser`'s log, `mta` and `wevt_cache`, and for
+  `WevtCache.load`, `dump`, `add_dll`, `add_dir` and `render_record_xml`. On
+  Unix, a `str` with a lone surrogate that no file name encodes to raises
+  `UnicodeEncodeError`, where it was taken as a file that isn't there. A
+  `bytes` object with a NUL byte in it, such as a log's contents, raises a
+  `TypeError` that says to pass `io.BytesIO(data)`.
+
 ### Added
 
 - Releases have a source distribution on PyPI next to the wheels. Until now
