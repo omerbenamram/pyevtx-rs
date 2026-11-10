@@ -1,4 +1,3 @@
-use std::fs::File;
 use std::sync::Arc;
 
 use pyo3::prelude::*;
@@ -10,7 +9,7 @@ use pyo3_stub_gen::derive::*;
 use evtx_rs::mta::MtaFile;
 use evtx_rs::{AnsiCodec, EvtxParser, ParserSettings};
 
-use crate::file_like::{required_path, FileOrFileLike, Raised, ReadSeek, Watched};
+use crate::file_like::{required_path, FileOrFileLike, Raised, ReadSeek};
 use crate::header::{PyChunkHeader, PyFileHeader};
 use crate::py_err::{py_err_from_mta_error, PyEvtxError};
 use crate::records::{warn_skipped, OutputFormat, PyRecordsIterator};
@@ -152,21 +151,10 @@ impl PyEvtxParser {
             }
         }
 
-        let raised = Raised::default();
-        let boxed_read_seek = match file_or_file_like {
-            FileOrFileLike::File(s) => {
-                let file = File::open(s)?;
-                Box::new(file) as Box<dyn ReadSeek>
-            }
-            FileOrFileLike::FileLike(file) => {
-                let raised = raised.clone();
-                Box::new(Watched { file, raised }) as Box<dyn ReadSeek>
-            }
-        };
-
-        let parser = EvtxParser::from_read_seek(boxed_read_seek)
+        let (reader, raised) = file_or_file_like.into_reader()?;
+        let parser = EvtxParser::from_read_seek(reader)
             // What `read()` raised, as it raised it, rather than an `OSError` made of it.
-            .map_err(|error| raised.take().unwrap_or_else(|| PyEvtxError(error).into()))?
+            .map_err(|error| raised.or(PyEvtxError(error)))?
             .with_configuration(configuration.clone());
         let header = PyFileHeader::from(parser.header());
 
@@ -210,13 +198,15 @@ impl PyEvtxParser {
         let raised = &self.raised;
         let mut read_raised = None;
         py.detach(|| {
-            for chunk in parser.chunks() {
-                // Not a chunk that can't be read: the reading itself failed, and is not
-                // skipped.
+            let mut chunks = parser.chunks();
+            loop {
+                let chunk = chunks.next();
+                // Not a chunk that can't be read: the reading itself failed, which is not
+                // skipped, and ends the reading.
                 read_raised = raised.take();
-                if read_raised.is_some() {
+                let (Some(chunk), None) = (chunk, &read_raised) else {
                     break;
-                }
+                };
                 match chunk {
                     Ok(chunk) => headers.push(PyChunkHeader::new(&chunk)),
                     Err(error) => {
@@ -229,7 +219,7 @@ impl PyEvtxParser {
             }
         });
         self.inner = Some(parser.with_configuration(self.configuration.clone()));
-        if let Some(raised) = read_raised.or_else(|| self.raised.take()) {
+        if let Some(raised) = read_raised {
             return Err(raised);
         }
         for error in errors {
@@ -288,9 +278,14 @@ impl PyEvtxParser {
 
     fn records_iterator(&mut self, output_format: OutputFormat) -> PyResult<PyRecordsIterator> {
         let inner = self.take_inner()?;
+        // This reads the chunk headers, to start at the oldest.
+        let chunks = inner.into_chunks();
+        if let Some(raised) = self.raised.take() {
+            return Err(raised);
+        }
 
         Ok(PyRecordsIterator::new(
-            inner.into_chunks(),
+            chunks,
             Arc::new(self.configuration.clone()),
             output_format,
             self.num_threads,

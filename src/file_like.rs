@@ -11,44 +11,64 @@ pub(crate) trait ReadSeek: Read + Seek + Send + Sync + 'static {}
 
 impl<T: Read + Seek + Send + Sync + 'static> ReadSeek for T {}
 
-/// The exception that a file-like object's `read()` or `seek()` raised last, kept for the
-/// caller of the parser: the parser sees an I/O error of some kind, or the end of the file,
-/// and what it makes of that is not what Python raised (a `KeyboardInterrupt`, say).
+/// The exception that a file-like object's `read()` or `seek()` raised, kept for the caller
+/// of the parser: the parser sees an I/O error of some kind, or the end of the file, and what
+/// it makes of that is not what Python raised (a `KeyboardInterrupt`, say).
+///
+/// Whoever has the parser read takes it afterwards and raises it. Until then every read
+/// fails, so the parser can't go on to make something else of the file.
 #[derive(Clone, Default)]
 pub(crate) struct Raised(Arc<Mutex<Option<PyErr>>>);
 
 impl Raised {
-    /// The exception, which is then the caller's to raise.
-    pub(crate) fn take(&self) -> Option<PyErr> {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner).take()
+    fn slot(&self) -> std::sync::MutexGuard<'_, Option<PyErr>> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn keep<T>(&self, result: io::Result<T>) -> io::Result<T> {
-        // pyo3 turns an exception into an `io::Error` that holds it.
-        let raised = result.as_ref().err().and_then(|error| error.get_ref());
-        if let Some(raised) = raised.and_then(|inner| inner.downcast_ref::<PyErr>()) {
-            let raised = Python::attach(|py| raised.clone_ref(py));
-            *self.0.lock().unwrap_or_else(PoisonError::into_inner) = Some(raised);
+    /// The exception, which is then the caller's to raise.
+    pub(crate) fn take(&self) -> Option<PyErr> {
+        self.slot().take()
+    }
+
+    /// The exception if there is one, and otherwise `error`, which the parser gave.
+    pub(crate) fn or(&self, error: impl Into<PyErr>) -> PyErr {
+        self.take().unwrap_or_else(|| error.into())
+    }
+
+    fn io<T>(&self, operation: impl FnOnce() -> io::Result<T>) -> io::Result<T> {
+        if self.slot().is_some() {
+            return Err(io::Error::other("the file-like object raised an exception"));
+        }
+        let result = operation();
+        if let Err(error) = &result {
+            // pyo3 turns an exception into an `io::Error` that holds it. An
+            // `InterruptedError` is one that `std` tries again after, and is not kept.
+            let raised = error.get_ref().and_then(|e| e.downcast_ref::<PyErr>());
+            if let (Some(raised), false) = (raised, error.kind() == io::ErrorKind::Interrupted) {
+                *self.slot() = Some(Python::attach(|py| raised.clone_ref(py)));
+            }
         }
         result
     }
 }
 
 /// A file-like object whose exceptions are kept in `raised`.
-pub(crate) struct Watched {
-    pub(crate) file: PyFileLikeObject,
-    pub(crate) raised: Raised,
+struct Watched {
+    file: PyFileLikeObject,
+    raised: Raised,
 }
 
 impl Read for Watched {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.raised.keep(self.file.read(buf))
+        let Watched { file, raised } = self;
+        raised.io(|| file.read(buf))
     }
 }
 
 impl Seek for Watched {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        self.raised.keep(self.file.seek(pos))
+        let Watched { file, raised } = self;
+        raised.io(|| file.seek(pos))
     }
 }
 
@@ -102,6 +122,19 @@ pub(crate) fn required_path(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Path
 }
 
 impl FileOrFileLike {
+    /// The reader, and where what its file-like object raises is kept (nothing, for a path).
+    pub(crate) fn into_reader(self) -> PyResult<(Box<dyn ReadSeek>, Raised)> {
+        let raised = Raised::default();
+        let reader = match self {
+            FileOrFileLike::File(path) => Box::new(std::fs::File::open(path)?) as Box<dyn ReadSeek>,
+            FileOrFileLike::FileLike(file) => {
+                let raised = raised.clone();
+                Box::new(Watched { file, raised })
+            }
+        };
+        Ok((reader, raised))
+    }
+
     pub(crate) fn from_pyobject(path_or_file_like: Py<PyAny>) -> PyResult<FileOrFileLike> {
         Python::attach(|py| {
             let bound = path_or_file_like.bind(py);

@@ -1,6 +1,5 @@
 #![cfg(feature = "wevt_templates")]
 
-use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -17,7 +16,7 @@ use evtx_rs::binxml::value_variant::BinXmlValue;
 use evtx_rs::wevt_templates::{normalize_guid, render_temp_to_xml_with_values, WevtCache};
 use evtx_rs::{EvtxParser, ParserSettings};
 
-use crate::file_like::{path_from_pyany, required_path, FileOrFileLike, ReadSeek};
+use crate::file_like::{path_from_pyany, required_path, FileOrFileLike};
 use crate::parser::resolve_ansi_codec;
 use crate::py_err::{
     py_err_from_path_io_err, py_err_from_wevt_cache_error, py_err_from_wevt_cache_file_error,
@@ -255,19 +254,21 @@ impl PyWevtCache {
         // Nudge deterministic behavior if any code path consults this.
         settings = settings.num_threads(1);
 
-        let boxed_read_seek = match file_or_file_like {
-            FileOrFileLike::File(s) => {
-                let file = File::open(s)?;
-                Box::new(file) as Box<dyn ReadSeek>
-            }
-            FileOrFileLike::FileLike(f) => Box::new(f) as Box<dyn ReadSeek>,
-        };
-
-        let mut parser = EvtxParser::from_read_seek(boxed_read_seek)
-            .map_err(PyEvtxError)?
+        let (reader, raised) = file_or_file_like.into_reader()?;
+        let mut parser = EvtxParser::from_read_seek(reader)
+            .map_err(|error| raised.or(PyEvtxError(error)))?
             .with_configuration(settings.clone());
 
-        for (chunk_idx, chunk_res) in parser.chunks().enumerate() {
+        let mut chunks = parser.chunks().enumerate();
+        loop {
+            let chunk = chunks.next();
+            // What the file-like object raised, whatever the parser made of it.
+            if let Some(raised) = raised.take() {
+                return Err(raised);
+            }
+            let Some((chunk_idx, chunk_res)) = chunk else {
+                break;
+            };
             let mut chunk_data = chunk_res.map_err(PyEvtxError)?;
             let mut chunk = chunk_data.parse(Arc::new(settings.clone())).map_err(|e| {
                 PyEvtxError(evtx_rs::err::EvtxError::FailedToParseChunk {

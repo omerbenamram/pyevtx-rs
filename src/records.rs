@@ -170,6 +170,7 @@ impl PyRecordsIterator {
         let chunks = ChunkPipeline {
             chunks,
             raised,
+            pending: None,
             settings,
             output_format,
             num_threads,
@@ -266,6 +267,8 @@ struct ChunkPipeline {
     chunks: IntoIterChunks<Box<dyn ReadSeek>>,
     /// What the file-like object raised while `chunks` read it.
     raised: Raised,
+    /// One that `fill` met, for `next` to return before anything else.
+    pending: Option<PyErr>,
     settings: Arc<ParserSettings>,
     output_format: OutputFormat,
     num_threads: usize,
@@ -308,6 +311,9 @@ impl ChunkPipeline {
                 ))));
             }
             self.fill();
+            if let Some(raised) = self.pending.take() {
+                return Some(ChunkRecords::raised(raised));
+            }
             if let Some(parsed) = self.parsed.remove(&self.next_out) {
                 self.next_out += 1;
                 // Keep `num_threads` chunks being parsed while the caller goes through this one.
@@ -322,21 +328,26 @@ impl ChunkPipeline {
     }
 
     /// The next chunk or the error it can't be read with. The outer error is what the
-    /// file-like object raised while it was read, whatever the parser made of that: a chunk
-    /// that failed, or the end of the log.
+    /// file-like object raised while it was read, whatever the parser made of that (a chunk
+    /// that failed, or the end of the log). It ends the log: the parser may be anywhere in
+    /// the file by then.
     fn read_chunk(&mut self) -> Option<Result<evtx_rs::err::Result<EvtxChunkData>, PyErr>> {
-        let chunk = self.chunks.next();
-        match self.raised.take() {
-            Some(raised) => Some(Err(raised)),
-            None => chunk.map(Ok),
+        if self.exhausted {
+            return None;
         }
+        let chunk = self.chunks.next();
+        if let Some(raised) = self.raised.take() {
+            self.exhausted = true;
+            return Some(Err(raised));
+        }
+        self.exhausted = chunk.is_none();
+        chunk.map(Ok)
     }
 
     /// Reads chunks and hands them to the pool until `num_threads` are being parsed.
     fn fill(&mut self) {
         while !self.exhausted && self.next_in - self.next_out < self.num_threads as u64 {
             let Some(chunk) = self.read_chunk() else {
-                self.exhausted = true;
                 break;
             };
             // With chunks in flight, it stays the process whose threads have them.
@@ -353,8 +364,13 @@ impl ChunkPipeline {
                     continue;
                 }
                 Err(raised) => {
-                    self.parsed.insert(number, Ok(ChunkRecords::raised(raised)));
-                    continue;
+                    // The caller gets it now, not after the chunks read before it: it can be
+                    // a `KeyboardInterrupt`. Those chunks' records go with the rest of the log.
+                    self.next_out = self.next_in;
+                    self.parsed.clear();
+                    self.arrivals = Arc::default();
+                    self.pending = Some(raised);
+                    break;
                 }
             };
             let settings = Arc::clone(&self.settings);

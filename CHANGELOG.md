@@ -15,8 +15,11 @@ and this project adheres to
   `OSError` with the message in it (from `PyEvtxParser(...)`), or as a `RuntimeError` that
   said `Reached EOF` (from the records iterators), which `skip_errors=True` then skipped:
   a `KeyboardInterrupt` during a read went unseen and the log just looked shorter.
-  `skip_errors=True` never skips such an exception. Code that caught `OSError` for a file
-  object closed too early now gets the `ValueError` that Python raises for it.
+  `skip_errors=True` never skips such an exception, and it ends the iteration: the next
+  `next()` raises `StopIteration`. With several threads it is raised at once, ahead of the
+  records of chunks read before it. An `InterruptedError` is not raised: the read is tried
+  again. Code that caught `OSError` for a file object closed too early now gets the
+  `ValueError` that Python raises for it.
 
 ### Fixed
 
