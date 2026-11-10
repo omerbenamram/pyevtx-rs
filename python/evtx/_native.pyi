@@ -203,7 +203,7 @@ class PyEvtxParser:
     Returns an instance of the parser.
     
     Args:
-        `path_or_file_like`: a path (str or `os.PathLike`), or a binary file-like object
+        `path_or_file_like`: a path (`str`, `bytes` or `os.PathLike`), or a binary file-like object
             with `read` and `seek`.
     
         `number_of_threads` (int, optional): how many chunks to parse at the same time, each
@@ -225,7 +225,7 @@ class PyEvtxParser:
     
         `indent` (bool, optional): indent the XML and JSON. On by default.
     
-        `wevt_cache` (WevtCache, str or `os.PathLike`, optional): `WEVT_TEMPLATE` templates,
+        `wevt_cache` (WevtCache, str, bytes or `os.PathLike`, optional): `WEVT_TEMPLATE` templates,
             as a `WevtCache` or the path of a `.wevtcache` file, to render the records
             whose template the log is missing or can't read.
     
@@ -238,7 +238,7 @@ class PyEvtxParser:
             record. They have `recovered` set to `True`, and the ones that can't be parsed
             are left out. Off by default.
     
-        `mta` (str or `os.PathLike`, optional): the path of an `.MTA` file, from the
+        `mta` (str, bytes or `os.PathLike`, optional): the path of an `.MTA` file, from the
             `LocaleMetaData` folder Windows saves next to a log exported with display
             information. Each record then gets a `RenderingInfo` element with its message
             and its level, task, opcode and keyword names, in the file's language.

@@ -17,7 +17,7 @@ use evtx_rs::binxml::value_variant::BinXmlValue;
 use evtx_rs::wevt_templates::{normalize_guid, render_temp_to_xml_with_values, WevtCache};
 use evtx_rs::{EvtxParser, ParserSettings};
 
-use crate::file_like::{path_string_from_pyany, FileOrFileLike, ReadSeek};
+use crate::file_like::{path_from_pyany, FileOrFileLike, ReadSeek};
 use crate::parser::resolve_ansi_codec;
 use crate::py_err::{
     py_err_from_io_err, py_err_from_wevt_cache_error, py_err_from_wevt_cache_file_error,
@@ -56,9 +56,10 @@ impl PyWevtCache {
     /// Load a WEVT template cache file (`.wevtcache`) produced by:
     /// `evtx_dump extract-wevt-templates --output cache.wevtcache ...`
     fn load(py: Python<'_>, path: Py<PyAny>) -> PyResult<Self> {
-        let path = path_string_from_pyany(&path.bind(py))?
-            .ok_or_else(|| PyErr::new::<PyTypeError, _>("path must be a path (str or Path)"))?;
-        let path_buf = PathBuf::from(&path);
+        let path = path_from_pyany(path.bind(py))?.ok_or_else(|| {
+            PyErr::new::<PyTypeError, _>("path must be a path (str, bytes or os.PathLike)")
+        })?;
+        let path_buf = path;
         if path_buf.extension().and_then(|s| s.to_str()) != Some("wevtcache") {
             return Err(PyErr::new::<PyValueError, _>(
                 "expected a `.wevtcache` file",
@@ -76,9 +77,10 @@ impl PyWevtCache {
     ///
     /// This is **strict**: failures to read/parse inputs raise exceptions.
     fn add_dll(&mut self, py: Python<'_>, path: Py<PyAny>) -> PyResult<usize> {
-        let path = path_string_from_pyany(&path.bind(py))?
-            .ok_or_else(|| PyErr::new::<PyTypeError, _>("path must be a path (str or Path)"))?;
-        self.add_pe_file(PathBuf::from(path))
+        let path = path_from_pyany(path.bind(py))?.ok_or_else(|| {
+            PyErr::new::<PyTypeError, _>("path must be a path (str, bytes or os.PathLike)")
+        })?;
+        self.add_pe_file(path)
     }
 
     #[pyo3(signature = (path, recursive=true, extensions=None))]
@@ -93,8 +95,9 @@ impl PyWevtCache {
         recursive: bool,
         extensions: Option<String>,
     ) -> PyResult<usize> {
-        let path = path_string_from_pyany(&path.bind(py))?
-            .ok_or_else(|| PyErr::new::<PyTypeError, _>("path must be a path (str or Path)"))?;
+        let path = path_from_pyany(path.bind(py))?.ok_or_else(|| {
+            PyErr::new::<PyTypeError, _>("path must be a path (str, bytes or os.PathLike)")
+        })?;
 
         let extensions = extensions.unwrap_or_else(|| "exe,dll,sys".to_string());
         let allowed_exts: std::collections::HashSet<String> = extensions
@@ -105,13 +108,7 @@ impl PyWevtCache {
 
         let mut files: Vec<PathBuf> = Vec::new();
         let mut seen: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
-        collect_input_paths(
-            &PathBuf::from(path),
-            recursive,
-            &allowed_exts,
-            &mut seen,
-            &mut files,
-        )?;
+        collect_input_paths(&path, recursive, &allowed_exts, &mut seen, &mut files)?;
         files.sort();
 
         let mut total = 0usize;
@@ -127,9 +124,10 @@ impl PyWevtCache {
     ///
     /// Dump this in-memory cache to a single `.wevtcache` file.
     fn dump(&self, py: Python<'_>, path: Py<PyAny>, overwrite: bool) -> PyResult<()> {
-        let path = path_string_from_pyany(&path.bind(py))?
-            .ok_or_else(|| PyErr::new::<PyTypeError, _>("path must be a path (str or Path)"))?;
-        let path_buf = PathBuf::from(&path);
+        let path = path_from_pyany(path.bind(py))?.ok_or_else(|| {
+            PyErr::new::<PyTypeError, _>("path must be a path (str, bytes or os.PathLike)")
+        })?;
+        let path_buf = path;
         if path_buf.extension().and_then(|s| s.to_str()) != Some("wevtcache") {
             return Err(PyErr::new::<PyValueError, _>(
                 "expected a `.wevtcache` file",
@@ -530,8 +528,7 @@ fn should_keep_file(path: &Path, allowed_exts: &std::collections::HashSet<String
 pub(crate) fn wevt_cache_from_pyobject(obj: Py<PyAny>) -> PyResult<Arc<WevtCache>> {
     Python::attach(|py| {
         let bound = obj.bind(py);
-        if let Some(path) = path_string_from_pyany(&bound)? {
-            let path = PathBuf::from(&path);
+        if let Some(path) = path_from_pyany(bound)? {
             if path.extension().and_then(|s| s.to_str()) != Some("wevtcache") {
                 return Err(PyErr::new::<PyValueError, _>(
                     "wevt_cache path must be a `.wevtcache` file",
@@ -565,7 +562,7 @@ pub(crate) fn wevt_cache_from_pyobject(obj: Py<PyAny>) -> PyResult<Arc<WevtCache
         }
 
         Err(PyErr::new::<PyTypeError, _>(
-            "wevt_cache must be a path (str or Path) or a WevtCache instance",
+            "wevt_cache must be a path (str, bytes or os.PathLike) or a WevtCache instance",
         ))
     })
 }

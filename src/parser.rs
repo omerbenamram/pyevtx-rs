@@ -11,7 +11,7 @@ use pyo3_stub_gen::derive::*;
 use evtx_rs::mta::MtaFile;
 use evtx_rs::{AnsiCodec, EvtxParser, ParserSettings};
 
-use crate::file_like::{path_string_from_pyany, FileOrFileLike, ReadSeek};
+use crate::file_like::{path_from_pyany, FileOrFileLike, ReadSeek};
 use crate::header::{PyChunkHeader, PyFileHeader};
 use crate::py_err::{py_err_from_mta_error, PyEvtxError};
 use crate::records::{warn_skipped, OutputFormat, PyRecordsIterator};
@@ -24,7 +24,7 @@ use crate::records::{warn_skipped, OutputFormat, PyRecordsIterator};
 /// Returns an instance of the parser.
 ///
 /// Args:
-///     `path_or_file_like`: a path (str or `os.PathLike`), or a binary file-like object
+///     `path_or_file_like`: a path (`str`, `bytes` or `os.PathLike`), or a binary file-like object
 ///         with `read` and `seek`.
 ///
 ///     `number_of_threads` (int, optional): how many chunks to parse at the same time, each
@@ -46,7 +46,7 @@ use crate::records::{warn_skipped, OutputFormat, PyRecordsIterator};
 ///
 ///     `indent` (bool, optional): indent the XML and JSON. On by default.
 ///
-///     `wevt_cache` (WevtCache, str or `os.PathLike`, optional): `WEVT_TEMPLATE` templates,
+///     `wevt_cache` (WevtCache, str, bytes or `os.PathLike`, optional): `WEVT_TEMPLATE` templates,
 ///         as a `WevtCache` or the path of a `.wevtcache` file, to render the records
 ///         whose template the log is missing or can't read.
 ///
@@ -59,7 +59,7 @@ use crate::records::{warn_skipped, OutputFormat, PyRecordsIterator};
 ///         record. They have `recovered` set to `True`, and the ones that can't be parsed
 ///         are left out. Off by default.
 ///
-///     `mta` (str or `os.PathLike`, optional): the path of an `.MTA` file, from the
+///     `mta` (str, bytes or `os.PathLike`, optional): the path of an `.MTA` file, from the
 ///         `LocaleMetaData` folder Windows saves next to a log exported with display
 ///         information. Each record then gets a `RenderingInfo` element with its message
 ///         and its level, task, opcode and keyword names, in the file's language.
@@ -130,8 +130,8 @@ impl PyEvtxParser {
         }
         configuration = configuration.recover_records(recover_records);
         if let Some(mta) = mta {
-            let path = path_string_from_pyany(mta.bind(py))?.ok_or_else(|| {
-                PyErr::new::<PyTypeError, _>("mta must be a path (str or os.PathLike)")
+            let path = path_from_pyany(mta.bind(py))?.ok_or_else(|| {
+                PyErr::new::<PyTypeError, _>("mta must be a path (str, bytes or os.PathLike)")
             })?;
             let mta = MtaFile::from_path(path).map_err(py_err_from_mta_error)?;
             configuration = configuration.mta(Some(Arc::new(mta)));
