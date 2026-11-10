@@ -20,6 +20,9 @@ and this project adheres to
   records of chunks read before it. An `InterruptedError` is not raised: the read is tried
   again. Code that caught `OSError` for a file object closed too early now gets the
   `ValueError` that Python raises for it.
+- A build from the source distribution uses the dependency versions of the `Cargo.lock` that
+  it ships, which are the ones the wheels were built and tested with. It used to resolve the
+  newest versions that `Cargo.toml` allows.
 
 ### Fixed
 

@@ -83,14 +83,14 @@ Use plain words and full sentences: short ones, one idea each, in the active voi
 - `make test` builds the extension and runs `pytest`.
 - When you change record output or parser settings, or move to a new `evtx` version: run `make test` with `EVTX_SAMPLES` set to the `samples/` folder of an `evtx` checkout. That also runs `tests/test_rust_parity.py`, which compares the records with the Rust parser's and is skipped without the variable. It builds `examples/records.rs` with cargo first. CI sets the variable in the Linux job only.
 - `make stubs` after any change to the API, and commit the regenerated `python/evtx/_native.pyi`. The `__init__.py` and `__init__.pyi` files of `python/evtx` and `python/evtx/wevt` re-export from it and are written by hand: add a new public name to them too.
-- `cargo fmt`. CI does not run rustfmt or clippy here, and the tree is rustfmt-clean.
+- When you change Rust code: `cargo fmt -- --check`. CI runs it on every pull request. CI does not run clippy here.
 - When you change `CHANGELOG.md` or `version` in `Cargo.toml`: `scripts/release-notes.sh <version in Cargo.toml>`. CI fails a pull request when the current version has no notes in `CHANGELOG.md`.
 
 ### Code rules
 
 - The Python API is the contract. Put a breaking change under `### Breaking changes` in `CHANGELOG.md`, and say what a caller must change.
 - The bindings build on the published `evtx` and `pyo3-file` crates. A change that needs unreleased code of either waits for that crate's release.
-- The wheel jobs build with `--locked`, and `make test` does not, so a local build can change `Cargo.lock` without saying so. Commit `Cargo.lock` whenever the dependencies change.
+- Every maturin build is locked: the wheel jobs pass `--locked`, and `locked = true` in `pyproject.toml` covers `make dev`, `make test` and a build from the sdist. So a build fails when `Cargo.lock` does not fit `Cargo.toml`. When you change the dependencies or `version`, run `cargo check`, which changes only what no longer fits in `Cargo.lock`, and commit the file. `make dev` and `make test` also fail on an out-of-date `uv.lock`: run `uv lock` and commit it.
 - The module runs on free-threaded Python. Keep it safe without the GIL, and keep `tests/test_free_threading.py` and `tests/test_threads.py` passing.
 - `scripts/check_wheel_abi.py` checks the tags of the built wheel. Keep it when you change the build.
 - The `include` list in `Cargo.toml` names what goes into the sdist, and nothing else does. When a build or a test needs a new file or folder at the top level, add it there. CI runs the tests from the sdist alone, so a test must not read a file that the sdist leaves out.
