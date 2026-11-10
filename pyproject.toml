@@ -38,6 +38,7 @@ dev = ["jupyter", "maturin>=1.15,<2.0"]
 [dependency-groups]
 dev = [
     "pytest",
+    "mypy>=1.18,<3",
     "maturin>=1.15,<2.0",
     "pefile>=2024.8.26",
 ]

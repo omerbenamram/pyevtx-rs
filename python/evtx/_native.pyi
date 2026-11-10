@@ -2,7 +2,6 @@
 # ruff: noqa: E501, F401, F403, F405
 
 import builtins
-from evtx import _types
 import typing
 __all__ = [
     "ChunkHeader",
@@ -298,7 +297,7 @@ class PyEvtxParser:
 @typing.final
 class PyRecordsIterator:
     def __iter__(self) -> PyRecordsIterator: ...
-    def __next__(self) -> _types.Record:
+    def __next__(self) -> dict[str, typing.Any]:
         r"""
         The next record: a dict with its `event_record_id`, its `timestamp`, its `data` (the
         XML or JSON text) and whether it was `recovered`.

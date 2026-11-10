@@ -373,7 +373,7 @@ impl PyRecordsIterator {
 
     /// The next record: a dict with its `event_record_id`, its `timestamp`, its `data` (the
     /// XML or JSON text) and whether it was `recovered`.
-    #[gen_stub(override_return_type(type_repr = "_types.Record", imports = ("evtx._types")))]
+    #[gen_stub(override_return_type(type_repr = "dict[str, typing.Any]", imports = ("typing")))]
     fn __next__(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         self.next(py)
     }

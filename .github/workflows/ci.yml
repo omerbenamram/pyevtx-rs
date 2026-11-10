@@ -85,8 +85,11 @@ jobs:
         with:
           name: wheels-linux-${{ matrix.python }}
           path: dist
-      # mypy is for tests/test_typing.py, which checks the stubs and is skipped without it.
-      - run: pip install -U pytest mypy
+      - run: pip install -U pytest
+      # For tests/test_typing.py, which checks the stubs and is skipped without it. One leg is
+      # enough, and mypy has no free-threaded wheels to rely on.
+      - if: matrix.python != '3.14t'
+        run: pip install "mypy>=1.18,<3"
       - run: pip install --no-index --find-links ./dist evtx
       - run: pytest
         env:
