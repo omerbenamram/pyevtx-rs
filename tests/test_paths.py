@@ -77,7 +77,34 @@ def test_non_utf8_paths_of_the_mta_and_the_wevt_cache(
         assert record_count(small_sample, wevt_cache=path) > 0
         os.remove(cache)
 
-    assert WevtCache().add_dir(non_utf8_dir) == 0
+    # A file that is there and isn't a PE file, which is not the error of a missing one.
+    not_a_dll = os.path.join(non_utf8_dir, b"not-a.dll")
+    shutil.copyfile(small_sample, not_a_dll)
+    for path in (not_a_dll, os.fsdecode(not_a_dll)):
+        with pytest.raises(Exception) as raised:
+            WevtCache().add_dll(path)
+        assert not isinstance(raised.value, FileNotFoundError), raised.value
+
+
+def test_bytes_that_are_a_logs_contents_say_what_to_pass(small_sample: str) -> None:
+    with open(small_sample, "rb") as o:
+        contents = o.read()
+    with pytest.raises(TypeError, match="io.BytesIO"):
+        PyEvtxParser(contents)
+
+
+def test_only_a_type_with_fspath_is_a_path(small_sample: str) -> None:
+    class Anything:
+        """A file object's proxy, which has every attribute and is no path."""
+
+        def __init__(self, file: object) -> None:
+            self.file = file
+
+        def __getattr__(self, name: str) -> object:
+            return getattr(self.file, name)
+
+    with open(small_sample, "rb") as o:
+        assert record_count(Anything(o)) > 0
 
 
 def test_a_path_that_is_not_there_is_not_found(tmp_path: Path) -> None:
