@@ -7,7 +7,7 @@ build-backend = "maturin"
 [tool.maturin]
 python-source = "python"
 module-name = "evtx._native"
-# What the sdist holds is the `include` list in Cargo.toml.
+# The `include` list in Cargo.toml names what goes into the sdist.
 
 [project]
 name = "evtx"
