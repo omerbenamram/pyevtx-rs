@@ -377,19 +377,20 @@ jobs:
           maturin-version: "v1.15.0"
           command: sdist
           args: -o dist
-      - name: Unpack the sdist
-        run: |
-          mkdir unpacked
-          tar -xzf dist/*.tar.gz -C unpacked --strip-components=1
+      - name: Check the sdist's metadata as PyPI will
+        run: pipx run twine check --strict dist/*.tar.gz
+      # Outside the checkout, so that nothing of the repository's is found from inside it.
       - name: Build and install a wheel from the sdist alone
-        working-directory: unpacked
         run: |
           pip install -U pytest
-          pip wheel --no-deps -w ../sdist-wheel .
-          pip install --no-index --find-links ../sdist-wheel evtx
+          pip wheel --no-deps -w "$RUNNER_TEMP/sdist-wheel" dist/*.tar.gz
+          pip install --no-index --find-links "$RUNNER_TEMP/sdist-wheel" evtx
       - name: Test with the sdist's own tests and samples
-        working-directory: unpacked
-        run: pytest
+        run: |
+          mkdir "$RUNNER_TEMP/unpacked"
+          tar -xzf dist/*.tar.gz -C "$RUNNER_TEMP/unpacked" --strip-components=1
+          cd "$RUNNER_TEMP/unpacked"
+          pytest
       - name: Upload sdist
         uses: actions/upload-artifact@v7
         with:
