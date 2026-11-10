@@ -65,14 +65,12 @@ def _raise_on_windows_case_collision(module_name: str, package_file: str) -> Non
 _raise_on_windows_case_collision(__name__, __file__)
 
 from ._native import ChunkHeader, FileHeader, PyEvtxParser, PyRecordsIterator
-from ._types import Record
 
 __all__ = [
     "ChunkHeader",
     "FileHeader",
     "PyEvtxParser",
     "PyRecordsIterator",
-    "Record",
 ]
 
 try:
