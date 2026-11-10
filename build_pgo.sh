@@ -10,7 +10,7 @@ rm -rf /tmp/pgo-data
 
 PATH=$HOME/.rustup/toolchains/$TOOLCHAIN/lib/rustlib/$TARGET/bin:$PATH
 RUSTFLAGS="-Cprofile-generate=/tmp/pgo-data" \
-    maturin develop --release --target $TARGET
+    maturin develop --release --locked --target $TARGET
 
 echo "Running instrumented binary"
 for i in $(find ./samples -name "*.evtx"); do
