@@ -1,4 +1,3 @@
-use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString};
 use pyo3::{exceptions::PyTypeError, PyResult};
