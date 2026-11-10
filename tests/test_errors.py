@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import struct
+import warnings
 from pathlib import Path
 
 import pytest
@@ -43,19 +44,74 @@ def test_string_cache_error_identifies_records_and_offset(small_sample: str):
     assert "offset 65535" in message
 
 
-def test_io_error_preserves_exception_type_and_context(small_sample: str):
+def test_what_a_file_likes_seek_raises_is_what_the_caller_gets(small_sample: str):
+    error = OSError("test seek failure")
+
     class BrokenSeek(io.BytesIO):
         fail = False
 
         def seek(self, offset, whence=0):
             if self.fail and offset == 4096:
-                raise OSError("test seek failure")
+                raise error
             return super().seek(offset, whence)
 
     stream = BrokenSeek(Path(small_sample).read_bytes())
     records = PyEvtxParser(stream).records()
     stream.fail = True
+    # The exception itself, with its traceback through `seek`: it was a new OSError with the
+    # message of this one in it.
     with pytest.raises(OSError) as raised:
         next(records)
-    assert "Failed to parse chunk number 0" in str(raised.value)
-    assert "test seek failure" in str(raised.value)
+    assert raised.value is error
+
+
+class _RaisingReads(io.BytesIO):
+    """A log whose `read()` raises `error` once `after` reads have been made."""
+
+    def __init__(self, data, after, error):
+        super().__init__(data)
+        self.after = after
+        self.error = error
+
+    def read(self, *args):
+        if self.after == 0:
+            raise self.error
+        self.after -= 1
+        return super().read(*args)
+
+
+@pytest.mark.parametrize("num_threads", [1, 4])
+@pytest.mark.parametrize(
+    "error",
+    [KeyboardInterrupt(), ConnectionResetError("gone"), RuntimeError("mine"), ValueError("v")],
+    ids=lambda error: type(error).__name__,
+)
+def test_what_a_file_likes_read_raises_is_what_the_caller_gets(
+    small_sample, num_threads, error
+):
+    # It was a RuntimeError that said "Reached EOF", which skip_errors=True then skipped: a
+    # Ctrl-C during a read went unseen, and the log just looked shorter.
+    data = open(small_sample, "rb").read()
+
+    # While the parser is created (it reads the file header).
+    with pytest.raises(type(error)) as raised:
+        PyEvtxParser(_RaisingReads(data, 0, error))
+    assert raised.value is error
+
+    # While records are read, with errors skipped or not.
+    for skip_errors in (False, True):
+        log = _RaisingReads(data, 3, error)
+        parser = PyEvtxParser(
+            log, number_of_threads=num_threads, skip_errors=skip_errors
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with pytest.raises(type(error)) as raised:
+                list(parser.records())
+        assert raised.value is error
+
+    # And while chunk headers are read.
+    log = _RaisingReads(data, 3, error)
+    with pytest.raises(type(error)) as raised:
+        PyEvtxParser(log, skip_errors=True).chunks()
+    assert raised.value is error

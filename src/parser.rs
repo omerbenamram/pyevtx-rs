@@ -10,7 +10,7 @@ use pyo3_stub_gen::derive::*;
 use evtx_rs::mta::MtaFile;
 use evtx_rs::{AnsiCodec, EvtxParser, ParserSettings};
 
-use crate::file_like::{required_path, FileOrFileLike, ReadSeek};
+use crate::file_like::{required_path, FileOrFileLike, Raised, ReadSeek, Watched};
 use crate::header::{PyChunkHeader, PyFileHeader};
 use crate::py_err::{py_err_from_mta_error, PyEvtxError};
 use crate::records::{warn_skipped, OutputFormat, PyRecordsIterator};
@@ -66,6 +66,8 @@ pub struct PyEvtxParser {
     pub(crate) inner: Option<EvtxParser<Box<dyn ReadSeek>>>,
     pub(crate) configuration: ParserSettings,
     pub(crate) skip_errors: bool,
+    /// What the file-like object raised, if the log is read from one.
+    pub(crate) raised: Raised,
     /// How many chunks the records iterators parse at a time.
     pub(crate) num_threads: usize,
     /// The file header, as read when the parser was created.
@@ -150,16 +152,21 @@ impl PyEvtxParser {
             }
         }
 
+        let raised = Raised::default();
         let boxed_read_seek = match file_or_file_like {
             FileOrFileLike::File(s) => {
                 let file = File::open(s)?;
                 Box::new(file) as Box<dyn ReadSeek>
             }
-            FileOrFileLike::FileLike(f) => Box::new(f) as Box<dyn ReadSeek>,
+            FileOrFileLike::FileLike(file) => {
+                let raised = raised.clone();
+                Box::new(Watched { file, raised }) as Box<dyn ReadSeek>
+            }
         };
 
         let parser = EvtxParser::from_read_seek(boxed_read_seek)
-            .map_err(PyEvtxError)?
+            // What `read()` raised, as it raised it, rather than an `OSError` made of it.
+            .map_err(|error| raised.take().unwrap_or_else(|| PyEvtxError(error).into()))?
             .with_configuration(configuration.clone());
         let header = PyFileHeader::from(parser.header());
 
@@ -167,6 +174,7 @@ impl PyEvtxParser {
             inner: Some(parser),
             configuration,
             skip_errors,
+            raised,
             num_threads,
             header,
         })
@@ -199,8 +207,16 @@ impl PyEvtxParser {
         let skip_errors = self.skip_errors;
         let mut headers = vec![];
         let mut errors = vec![];
+        let raised = &self.raised;
+        let mut read_raised = None;
         py.detach(|| {
             for chunk in parser.chunks() {
+                // Not a chunk that can't be read: the reading itself failed, and is not
+                // skipped.
+                read_raised = raised.take();
+                if read_raised.is_some() {
+                    break;
+                }
                 match chunk {
                     Ok(chunk) => headers.push(PyChunkHeader::new(&chunk)),
                     Err(error) => {
@@ -213,6 +229,9 @@ impl PyEvtxParser {
             }
         });
         self.inner = Some(parser.with_configuration(self.configuration.clone()));
+        if let Some(raised) = read_raised.or_else(|| self.raised.take()) {
+            return Err(raised);
+        }
         for error in errors {
             if skip_errors && error.is_instance_of::<PyRuntimeError>(py) {
                 warn_skipped(py, &error)?;
@@ -276,6 +295,7 @@ impl PyEvtxParser {
             output_format,
             self.num_threads,
             self.skip_errors,
+            self.raised.clone(),
         ))
     }
 }

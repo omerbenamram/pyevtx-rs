@@ -3,12 +3,54 @@ use pyo3::types::{PyBytes, PyString};
 use pyo3::{exceptions::PyTypeError, PyResult};
 use pyo3_file::PyFileLikeObject;
 
-use std::io::{Read, Seek};
+use std::io::{self, Read, Seek, SeekFrom};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex, PoisonError};
 
 pub(crate) trait ReadSeek: Read + Seek + Send + Sync + 'static {}
 
 impl<T: Read + Seek + Send + Sync + 'static> ReadSeek for T {}
+
+/// The exception that a file-like object's `read()` or `seek()` raised last, kept for the
+/// caller of the parser: the parser sees an I/O error of some kind, or the end of the file,
+/// and what it makes of that is not what Python raised (a `KeyboardInterrupt`, say).
+#[derive(Clone, Default)]
+pub(crate) struct Raised(Arc<Mutex<Option<PyErr>>>);
+
+impl Raised {
+    /// The exception, which is then the caller's to raise.
+    pub(crate) fn take(&self) -> Option<PyErr> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).take()
+    }
+
+    fn keep<T>(&self, result: io::Result<T>) -> io::Result<T> {
+        // pyo3 turns an exception into an `io::Error` that holds it.
+        let raised = result.as_ref().err().and_then(|error| error.get_ref());
+        if let Some(raised) = raised.and_then(|inner| inner.downcast_ref::<PyErr>()) {
+            let raised = Python::attach(|py| raised.clone_ref(py));
+            *self.0.lock().unwrap_or_else(PoisonError::into_inner) = Some(raised);
+        }
+        result
+    }
+}
+
+/// A file-like object whose exceptions are kept in `raised`.
+pub(crate) struct Watched {
+    pub(crate) file: PyFileLikeObject,
+    pub(crate) raised: Raised,
+}
+
+impl Read for Watched {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.raised.keep(self.file.read(buf))
+    }
+}
+
+impl Seek for Watched {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        self.raised.keep(self.file.seek(pos))
+    }
+}
 
 #[derive(Debug)]
 pub(crate) enum FileOrFileLike {
