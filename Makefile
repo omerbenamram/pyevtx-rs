@@ -15,11 +15,11 @@ stubs:
 
 # Build and install the package in development mode
 dev:
-	uv run maturin develop --locked --features wevt_templates
+	uv run --locked maturin develop --features wevt_templates
 
 # Run tests
 test: dev
-	uv run pytest tests/ -v
+	uv run --locked pytest tests/ -v
 
 # Clean build artifacts
 clean:
