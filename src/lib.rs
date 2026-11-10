@@ -6,6 +6,7 @@ mod doc;
 mod file_like;
 mod header;
 mod parser;
+mod pool;
 mod py_err;
 mod records;
 
