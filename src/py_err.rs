@@ -31,17 +31,18 @@ pub(crate) fn py_err_from_mta_error(e: evtx_rs::mta::MtaError) -> PyErr {
     }
 }
 
-pub(crate) fn py_err_from_io_err(e: &io::Error) -> PyErr {
-    io_error_with_message(e, e.to_string())
-}
-
 /// The error of an operation on `path`, with the path in its message.
 #[cfg(feature = "wevt_templates")]
 pub(crate) fn py_err_from_path_io_err(path: &std::path::Path, e: &io::Error) -> PyErr {
     match e.raw_os_error() {
         // As Python raises it: `OSError(errno, strerror, filename)` is the subclass that the
         // errno has, such as `FileNotFoundError`, with its `errno` and `filename` set.
-        Some(errno) => PyOSError::new_err((errno, e.to_string(), path.as_os_str().to_os_string())),
+        Some(errno) => {
+            // Without Rust's " (os error 2)", which Python's `[Errno 2]` already says.
+            let message = e.to_string();
+            let strerror = message.split(" (os error").next().unwrap_or(&message);
+            PyOSError::new_err((errno, strerror.to_string(), path.as_os_str().to_os_string()))
+        }
         None => io_error_with_message(e, format!("{}: {}", path.display(), e)),
     }
 }

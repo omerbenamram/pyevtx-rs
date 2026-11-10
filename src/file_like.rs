@@ -71,11 +71,10 @@ impl FileOrFileLike {
             // log is bytes: say so here, instead of failing on whatever the decoding makes of
             // the header. Reading nothing shows what `read()` gives, for a wrapper of a text
             // file as for an `io.TextIOBase`.
-            let reads_text = match bound.call_method1("read", (0,)) {
-                Ok(read) => read.is_instance_of::<PyString>(),
-                // Whatever is wrong with `read()`, the reader below says.
-                Err(_) => false,
-            };
+            // Whatever is wrong with a `read()` that raises, the reader below says.
+            let reads_text = bound
+                .call_method1("read", (0,))
+                .map_or(false, |read| read.is_instance_of::<PyString>());
             if reads_text {
                 return Err(PyTypeError::new_err(
                     "The file object is in text mode, and an EVTX log is binary: open it in \

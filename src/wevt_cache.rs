@@ -20,8 +20,8 @@ use evtx_rs::{EvtxParser, ParserSettings};
 use crate::file_like::{path_from_pyany, required_path, FileOrFileLike, ReadSeek};
 use crate::parser::resolve_ansi_codec;
 use crate::py_err::{
-    py_err_from_io_err, py_err_from_path_io_err, py_err_from_wevt_cache_error,
-    py_err_from_wevt_cache_file_error, py_err_from_wevt_extract_error, PyEvtxError,
+    py_err_from_path_io_err, py_err_from_wevt_cache_error, py_err_from_wevt_cache_file_error,
+    py_err_from_wevt_extract_error, PyEvtxError,
 };
 
 #[derive(Debug, Clone)]
@@ -355,7 +355,7 @@ impl PyWevtCache {
     fn add_pe_file(&mut self, path: PathBuf) -> PyResult<usize> {
         use evtx_rs::wevt_templates::extract_wevt_template_resources;
 
-        let bytes = std::fs::read(&path).map_err(|e| py_err_from_io_err(&e))?;
+        let bytes = std::fs::read(&path).map_err(|e| py_err_from_path_io_err(&path, &e))?;
         let wevt_resources =
             extract_wevt_template_resources(&bytes).map_err(py_err_from_wevt_extract_error)?;
 
