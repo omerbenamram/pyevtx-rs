@@ -88,3 +88,17 @@ def test_wevt_cache_add_is_transactional(tmp_path: Path, repo_root: Path):
     out_file = tmp_path / "cache.wevtcache"
     cache.dump(out_file, overwrite=True)
     assert read_wevtcache_entry_count(out_file) == 0
+
+
+def test_wevt_cache_add_dir_of_a_missing_directory_raises(tmp_path: Path):
+    cache = WevtCache()
+    missing = tmp_path / "missing"
+    with pytest.raises(FileNotFoundError, match="missing"):
+        cache.add_dir(missing)
+    with pytest.raises(FileNotFoundError, match="missing"):
+        cache.add_dir(str(missing), recursive=False)
+
+    # A directory with nothing to add is not an error.
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert cache.add_dir(empty) == 0

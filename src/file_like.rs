@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString};
-use pyo3::PyResult;
+use pyo3::{exceptions::PyTypeError, PyResult};
 use pyo3_file::PyFileLikeObject;
 
 use std::io::{Read, Seek};
@@ -46,6 +46,17 @@ impl FileOrFileLike {
             let bound = path_or_file_like.bind(py);
             if let Some(path) = path_from_pyany(bound)? {
                 return Ok(FileOrFileLike::File(path));
+            }
+
+            // A text-mode file gives `str`, decoded and with its newlines translated, and a
+            // log is bytes: say so here, instead of failing on whatever the decoding makes of
+            // the header.
+            let text_io_base = py.import("io")?.getattr("TextIOBase")?;
+            if bound.is_instance(&text_io_base)? {
+                return Err(PyTypeError::new_err(
+                    "The file object is in text mode, and an EVTX log is binary: open it in \
+                     binary mode, as in open(path, \"rb\"), or pass the path itself.",
+                ));
             }
 
             // We only need read + seek

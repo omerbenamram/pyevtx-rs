@@ -82,8 +82,8 @@ impl ManifestInner {
     }
 }
 
-#[gen_stub_pyclass]
-#[pyclass(name = "Manifest")]
+#[gen_stub_pyclass(module = "evtx._native")]
+#[pyclass(module = "evtx.wevt", name = "Manifest")]
 pub struct PyWevtManifest {
     inner: Arc<ManifestInner>,
 }
@@ -191,8 +191,8 @@ impl PyWevtManifest {
     }
 }
 
-#[gen_stub_pyclass]
-#[pyclass(name = "Provider")]
+#[gen_stub_pyclass(module = "evtx._native")]
+#[pyclass(module = "evtx.wevt", name = "Provider")]
 pub struct PyWevtProvider {
     inner: Arc<ManifestInner>,
     provider_index: usize,
@@ -245,8 +245,8 @@ impl PyWevtProvider {
     }
 }
 
-#[gen_stub_pyclass]
-#[pyclass(name = "Event")]
+#[gen_stub_pyclass(module = "evtx._native")]
+#[pyclass(module = "evtx.wevt", name = "Event")]
 pub struct PyWevtEvent {
     inner: Arc<ManifestInner>,
     provider_index: usize,
@@ -277,8 +277,8 @@ impl PyWevtEvent {
     }
 }
 
-#[gen_stub_pyclass]
-#[pyclass(name = "Template")]
+#[gen_stub_pyclass(module = "evtx._native")]
+#[pyclass(module = "evtx.wevt", name = "Template")]
 pub struct PyWevtTemplate {
     inner: Arc<ManifestInner>,
     provider_index: usize,
@@ -337,8 +337,8 @@ impl PyWevtTemplate {
     }
 }
 
-#[gen_stub_pyclass]
-#[pyclass(name = "TemplateItem")]
+#[gen_stub_pyclass(module = "evtx._native")]
+#[pyclass(module = "evtx.wevt", name = "TemplateItem")]
 pub struct PyWevtTemplateItem {
     inner: Arc<ManifestInner>,
     provider_index: usize,

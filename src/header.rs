@@ -9,8 +9,8 @@ use evtx_rs::{ChunkFlags, EvtxChunkData, EvtxFileHeader, HeaderFlags};
 const HEADER_BLOCK_SIZE: u64 = 4096;
 const CHUNK_SIZE: u64 = 65536;
 
-#[gen_stub_pyclass]
-#[pyclass(name = "FileHeader", frozen)]
+#[gen_stub_pyclass(module = "evtx._native")]
+#[pyclass(module = "evtx", name = "FileHeader", frozen)]
 #[derive(Clone)]
 /// A log's file header, as `PyEvtxParser.header` gives it.
 ///
@@ -97,8 +97,8 @@ impl PyFileHeader {
     }
 }
 
-#[gen_stub_pyclass]
-#[pyclass(name = "ChunkHeader", frozen)]
+#[gen_stub_pyclass(module = "evtx._native")]
+#[pyclass(module = "evtx", name = "ChunkHeader", frozen)]
 /// A chunk's header, as `PyEvtxParser.chunks()` gives it.
 pub struct PyChunkHeader {
     /// The chunk's number in the file.

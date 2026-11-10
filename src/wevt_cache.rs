@@ -20,8 +20,8 @@ use evtx_rs::{EvtxParser, ParserSettings};
 use crate::file_like::{path_from_pyany, FileOrFileLike, ReadSeek};
 use crate::parser::resolve_ansi_codec;
 use crate::py_err::{
-    py_err_from_io_err, py_err_from_wevt_cache_error, py_err_from_wevt_cache_file_error,
-    py_err_from_wevt_extract_error, PyEvtxError,
+    py_err_from_io_err, py_err_from_path_io_err, py_err_from_wevt_cache_error,
+    py_err_from_wevt_cache_file_error, py_err_from_wevt_extract_error, PyEvtxError,
 };
 
 #[derive(Debug, Clone)]
@@ -29,8 +29,8 @@ struct PyWevtResource {
     data: Arc<Vec<u8>>,
 }
 
-#[gen_stub_pyclass]
-#[pyclass(name = "WevtCache")]
+#[gen_stub_pyclass(module = "evtx._native")]
+#[pyclass(module = "evtx", name = "WevtCache")]
 pub struct PyWevtCache {
     event_to_template_guid: std::collections::HashMap<(String, u16, u8), String>,
     temps_by_guid: std::collections::HashMap<String, Arc<Vec<u8>>>,
@@ -87,7 +87,9 @@ impl PyWevtCache {
     /// add_dir(self, path, recursive=True, extensions="exe,dll,sys", /)
     /// --
     ///
-    /// Walk a directory and call `add_dll()` for all matching files.
+    /// Walk a directory and call `add_dll()` for all matching files. Returns how many
+    /// templates were added. A `path` that doesn't exist raises `FileNotFoundError`, and one
+    /// that can't be read `OSError`.
     fn add_dir(
         &mut self,
         py: Python<'_>,
@@ -480,11 +482,11 @@ fn collect_input_paths(
 ) -> PyResult<()> {
     use std::collections::VecDeque;
 
-    if !input.exists() {
-        return Ok(());
-    }
+    // A path that isn't there, or can't be looked at, is an error: not a directory with no
+    // templates in it.
+    let metadata = std::fs::metadata(input).map_err(|e| py_err_from_path_io_err(input, &e))?;
 
-    if input.is_file() {
+    if metadata.is_file() {
         let p = input.to_path_buf();
         if seen.insert(p.clone()) {
             out_files.push(p);
@@ -492,7 +494,7 @@ fn collect_input_paths(
         return Ok(());
     }
 
-    if input.is_dir() {
+    if metadata.is_dir() {
         let mut queue = VecDeque::new();
         queue.push_back(input.to_path_buf());
 

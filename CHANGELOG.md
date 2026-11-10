@@ -45,6 +45,24 @@ and this project adheres to
   `WevtCache.load`, `dump`, `add_dll`, `add_dir` and `render_record_xml`. A
   `str` with a lone surrogate that no file name encodes to raises
   `UnicodeEncodeError` instead of `FileNotFoundError`.
+- A file-like object whose `read()` or `seek()` advanced the records iterator
+  that was reading it hung the thread forever: the iterator waited for itself.
+  That call now raises `RuntimeError`, and if `read()` lets the error out, the
+  outer `next()` raises it too, with or without `skip_errors`. An iterator
+  whose `read()` handles the error goes on.
+- The classes said they were builtins: `PyEvtxParser.__module__` was
+  `'builtins'` and its repr `<class 'builtins.PyEvtxParser'>`. `PyEvtxParser`,
+  `PyRecordsIterator`, `FileHeader`, `ChunkHeader` and `WevtCache` now have
+  `__module__ == 'evtx'`, and `Manifest`, `Provider`, `Event`, `Template` and
+  `TemplateItem` have `'evtx.wevt'`, the modules they are imported from.
+- A file object opened in text mode raised an `OSError` about whatever its
+  encoding made of the log (`'utf-8' codec can't decode byte 0x80`, or `buffer
+  size must be at least 4 bytes`). It now raises a `TypeError` that says to
+  open the file in binary mode. Code that caught `OSError` for this needs to
+  catch `TypeError`.
+- `WevtCache.add_dir` returned `0` for a directory that doesn't exist, as if
+  it had no templates. It now raises `FileNotFoundError` with the path, and
+  `OSError` for a path that can't be looked at.
 
 ### Added
 

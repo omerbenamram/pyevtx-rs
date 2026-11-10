@@ -35,6 +35,12 @@ pub(crate) fn py_err_from_io_err(e: &io::Error) -> PyErr {
     io_error_with_message(e, e.to_string())
 }
 
+/// The error of an operation on `path`, with the path in its message.
+#[cfg(feature = "wevt_templates")]
+pub(crate) fn py_err_from_path_io_err(path: &std::path::Path, e: &io::Error) -> PyErr {
+    io_error_with_message(e, format!("{}: {e}", path.display()))
+}
+
 fn io_error_with_message(e: &io::Error, message: String) -> PyErr {
     match e.kind() {
         io::ErrorKind::NotFound => PyFileNotFoundError::new_err(message),
