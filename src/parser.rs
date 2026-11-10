@@ -248,10 +248,14 @@ impl PyEvtxParser {
         self.records_iterator(OutputFormat::JSON)
     }
 
+    /// Iterating over the parser is iterating over `records()`.
     fn __iter__(mut slf: PyRefMut<Self>) -> PyResult<PyRecordsIterator> {
         slf.records()
     }
 
+    /// Always raises `NotImplementedError`: the parser is not its own iterator. Iterate over
+    /// it, or over `records()` or `records_json()`.
+    #[gen_stub(override_return_type(type_repr = "typing.NoReturn", imports = ("typing")))]
     fn __next__(_slf: PyRefMut<Self>) -> PyResult<Option<Py<PyAny>>> {
         Err(PyErr::new::<PyNotImplementedError, _>(
             "Using `next()` over `PyEvtxParser` is not supported. Try iterating over `PyEvtxParser(...).records()`",

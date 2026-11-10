@@ -82,7 +82,8 @@ jobs:
         with:
           name: wheels-linux-${{ matrix.python }}
           path: dist
-      - run: pip install -U pytest
+      # mypy is for tests/test_typing.py, which checks the stubs and is skipped without it.
+      - run: pip install -U pytest mypy
       # --force-reinstall: this version may be installed already, as the instrumented build.
       - run: pip install --force-reinstall --no-index --find-links ./dist evtx
       - name: Verify the installed wheel is the one in dist

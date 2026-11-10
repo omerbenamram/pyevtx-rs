@@ -25,6 +25,15 @@ and this project adheres to
   with it, and ran the tests on the first build: `pip install` leaves an
   installed package of the same version in place. CI now reinstalls the wheel
   before the tests, and checks that the installed files are the wheel's.
+- The type stubs said that a record could be `None` and was otherwise `Any`,
+  so type checkers rejected `record["data"]` in a loop over `records()` or
+  `records_json()`. A record is now typed as `evtx.Record`, a `TypedDict` of
+  `event_record_id` (`int`), `timestamp` (`str`), `data` (`str`) and
+  `recovered` (`bool`), which is what the iterators have always returned.
+  `next()` on a `PyEvtxParser` itself, which always raises
+  `NotImplementedError`, is typed as `NoReturn` instead of as returning a
+  record. Nothing changes at run time, except that `evtx.Record` can be
+  imported.
 
 ## [0.15.0 - 2026-11-01]
 
