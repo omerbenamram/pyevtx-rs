@@ -272,6 +272,8 @@ You can generate the cache directly from Python by scanning provider binaries an
 `WEVT_TEMPLATE` resources into an **in-memory** cache:
 
 ```python
+import os
+
 from evtx import WevtCache
 
 cache = WevtCache()
@@ -281,7 +283,9 @@ cache.add_dll(r"C:\Windows\System32\services.exe")
 
 # Or scan directories
 cache.add_dir(r"C:\Windows\System32", recursive=True, extensions="exe,dll,sys")
-cache.add_dir(r"C:\Windows\SysWOW64", recursive=True, extensions="exe,dll,sys")
+# A directory that isn't there raises FileNotFoundError.
+if os.path.isdir(r"C:\Windows\SysWOW64"):
+    cache.add_dir(r"C:\Windows\SysWOW64", recursive=True, extensions="exe,dll,sys")
 
 # Optional: persist to disk for reuse by other tools (writes a single .wevtcache file)
 cache.dump("wevt_cache_out.wevtcache", overwrite=True)

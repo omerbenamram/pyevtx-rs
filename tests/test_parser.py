@@ -90,11 +90,14 @@ def test_it_works_on_file_backed_object(small_sample: str):
 
 
 def test_it_fails_on_file_opened_as_text(small_sample: str):
-    with pytest.raises(OSError) as e:
-        with open(small_sample, "rt") as o:
-            PyEvtxParser(o)
+    # Whatever the encoding makes of the bytes: latin-1 decodes any of them.
+    for kwargs in ({}, {"encoding": "latin-1"}):
+        with open(small_sample, "rt", **kwargs) as o:
+            with pytest.raises(TypeError, match="binary mode"):
+                PyEvtxParser(o)
 
-    assert "decode byte" in e.value.args[0]
+    with pytest.raises(TypeError, match="binary mode"):
+        PyEvtxParser(io.StringIO("ElfFile"))
 
 
 def test_it_fails_nicely_on_close_files(small_sample: str):

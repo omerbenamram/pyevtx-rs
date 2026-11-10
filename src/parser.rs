@@ -15,8 +15,8 @@ use crate::header::{PyChunkHeader, PyFileHeader};
 use crate::py_err::{py_err_from_mta_error, PyEvtxError};
 use crate::records::{warn_skipped, OutputFormat, PyRecordsIterator};
 
-#[gen_stub_pyclass]
-#[pyclass]
+#[gen_stub_pyclass(module = "evtx._native")]
+#[pyclass(module = "evtx")]
 /// PyEvtxParser(path_or_file_like, number_of_threads=None, ansi_codec=None, validate_checksums=None, separate_json_attributes=None, indent=None, wevt_cache=None, skip_errors=False, recover_records=False, mta=None)
 /// --
 ///

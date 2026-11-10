@@ -4,6 +4,7 @@ use std::fmt::{Display, Write};
 use std::ops::Range;
 use std::panic::{self, AssertUnwindSafe};
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
+use std::thread::{self, ThreadId};
 
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -119,13 +120,25 @@ impl Arrivals {
     }
 }
 
-#[gen_stub_pyclass]
-#[pyclass(frozen)]
+#[gen_stub_pyclass(module = "evtx._native")]
+#[pyclass(module = "evtx", frozen)]
 pub struct PyRecordsIterator {
     /// Python threads can share the iterator: a call that finds another one going waits for it
     /// with the GIL released, since that one can be waiting for a chunk with the GIL released.
     records: Mutex<Records>,
+    /// The thread that holds `records`, while it does. Reading a chunk calls a file-like
+    /// object's `read` and `seek`, which are Python code and can come back to this iterator.
+    advancing: Mutex<Option<ThreadId>>,
     skip_errors: bool,
+}
+
+/// Says that no thread is advancing the iterator any more, on the way out of `next`.
+struct Advancing<'a>(&'a Mutex<Option<ThreadId>>);
+
+impl Drop for Advancing<'_> {
+    fn drop(&mut self) {
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = None;
+    }
 }
 
 /// Where a records iterator is: the chunks, and the records of the one being returned.
@@ -160,6 +173,7 @@ impl PyRecordsIterator {
                 chunks,
                 current: ChunkRecords::default(),
             }),
+            advancing: Mutex::new(None),
             skip_errors,
         }
     }
@@ -167,12 +181,7 @@ impl PyRecordsIterator {
     fn next(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         loop {
             // Lets go of the records before warning: warnings filters and hooks run Python code.
-            let record = self
-                .records
-                .lock_py_attached(py)
-                // A panic in a call before left the records as they were.
-                .unwrap_or_else(PoisonError::into_inner)
-                .next(py);
+            let record = self.advance(py)?;
             match record {
                 Err(error) if self.skip_errors && error.is_instance_of::<PyRuntimeError>(py) => {
                     warn_skipped(py, &error)?;
@@ -180,6 +189,39 @@ impl PyRecordsIterator {
                 result => return result,
             }
         }
+    }
+}
+
+impl PyRecordsIterator {
+    /// The next record or its parse error, in the inner result. The outer error is for a call
+    /// that can't advance the iterator at all, which `skip_errors` doesn't skip.
+    fn advance(&self, py: Python<'_>) -> PyResult<PyResult<Option<Py<PyAny>>>> {
+        let this_thread = thread::current().id();
+        let advancing = || {
+            self.advancing
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+        };
+        // Only this thread sets it to its own ID, and only while it holds the records.
+        if *advancing() == Some(this_thread) {
+            // Waiting for the records would be waiting for this thread, forever. What becomes
+            // of the call that is advancing is up to the Python code that came back here: a
+            // `read()` that lets this error out fails that call's read.
+            return Err(PyRuntimeError::new_err(
+                "The records iterator was advanced while it was already advancing on this \
+                 thread, for example from the read() or seek() of the file-like object it \
+                 reads. A file-like object must not iterate over the parser that reads it.",
+            ));
+        }
+        let mut records = self
+            .records
+            .lock_py_attached(py)
+            // A panic in a call before left the records as they were.
+            .unwrap_or_else(PoisonError::into_inner);
+        *advancing() = Some(this_thread);
+        // Dropped before the records are let go of.
+        let _advancing = Advancing(&self.advancing);
+        Ok(records.next(py))
     }
 }
 

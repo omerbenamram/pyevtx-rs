@@ -359,7 +359,9 @@ class WevtCache:
         add_dir(self, path, recursive=True, extensions="exe,dll,sys", /)
         --
         
-        Walk a directory and call `add_dll()` for all matching files.
+        Walk a directory and call `add_dll()` for all matching files. Returns how many
+        templates were added. A `path` that doesn't exist raises `FileNotFoundError`, and one
+        that can't be read `OSError`.
         """
     def dump(self, path: typing.Any, overwrite: builtins.bool = False) -> None:
         r"""
