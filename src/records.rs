@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use std::fmt::{Display, Write};
 use std::ops::Range;
 use std::panic::{self, AssertUnwindSafe};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::thread::{self, ThreadId};
 
@@ -130,8 +129,6 @@ pub struct PyRecordsIterator {
     /// The thread that holds `records`, while it does. Reading a chunk calls a file-like
     /// object's `read` and `seek`, which are Python code and can come back to this iterator.
     advancing: Mutex<Option<ThreadId>>,
-    /// Whether that thread came back to the iterator during the call that is advancing it.
-    reentered: AtomicBool,
     skip_errors: bool,
 }
 
@@ -177,7 +174,6 @@ impl PyRecordsIterator {
                 current: ChunkRecords::default(),
             }),
             advancing: Mutex::new(None),
-            reentered: AtomicBool::new(false),
             skip_errors,
         }
     }
@@ -208,9 +204,14 @@ impl PyRecordsIterator {
         };
         // Only this thread sets it to its own ID, and only while it holds the records.
         if *advancing() == Some(this_thread) {
-            // Waiting for the records would be waiting for this thread, forever.
-            self.reentered.store(true, Ordering::Relaxed);
-            return Err(reentered_error());
+            // Waiting for the records would be waiting for this thread, forever. What becomes
+            // of the call that is advancing is up to the Python code that came back here: a
+            // `read()` that lets this error out fails that call's read.
+            return Err(PyRuntimeError::new_err(
+                "The records iterator was advanced while it was already advancing on this \
+                 thread, for example from the read() or seek() of the file-like object it \
+                 reads. A file-like object must not iterate over the parser that reads it.",
+            ));
         }
         let mut records = self
             .records
@@ -220,26 +221,8 @@ impl PyRecordsIterator {
         *advancing() = Some(this_thread);
         // Dropped before the records are let go of.
         let _advancing = Advancing(&self.advancing);
-        self.reentered.store(false, Ordering::Relaxed);
-        match records.next(py) {
-            // The error above went through `read()` or `seek()` to the parser, which reports
-            // a read that failed as a chunk cut short. Say what happened instead.
-            Err(error) if self.reentered.swap(false, Ordering::Relaxed) => {
-                let reentered = reentered_error();
-                reentered.set_cause(py, Some(error));
-                Err(reentered)
-            }
-            record => Ok(record),
-        }
+        Ok(records.next(py))
     }
-}
-
-fn reentered_error() -> PyErr {
-    PyRuntimeError::new_err(
-        "The records iterator was advanced from inside its own file-like object's read() or \
-         seek(), while it was reading the next chunk from it. A file-like object must not \
-         iterate over the parser that reads it.",
-    )
 }
 
 impl Records {

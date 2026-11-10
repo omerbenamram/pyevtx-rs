@@ -42,9 +42,10 @@ and this project adheres to
   `TypeError` that says to pass `io.BytesIO(data)`.
 - A file-like object whose `read()` or `seek()` advanced the records iterator
   that was reading it hung the thread forever: the iterator waited for itself.
-  That call now raises `RuntimeError`, and if `read()` lets the error out, the
-  outer `next()` raises it too, with or without `skip_errors`. An iterator
-  whose `read()` handles the error goes on.
+  That call now raises `RuntimeError`. If `read()` handles the error the
+  iterator goes on, and if it lets it out, the read fails as any read that
+  raises does. A `read()` that advances the iterator on another thread and
+  waits for it still waits forever.
 - The classes said they were builtins: `PyEvtxParser.__module__` was
   `'builtins'` and its repr `<class 'builtins.PyEvtxParser'>`. `PyEvtxParser`,
   `PyRecordsIterator`, `FileHeader`, `ChunkHeader` and `WevtCache` now have
@@ -56,8 +57,10 @@ and this project adheres to
   open the file in binary mode. Code that caught `OSError` for this needs to
   catch `TypeError`.
 - `WevtCache.add_dir` returned `0` for a directory that doesn't exist, as if
-  it had no templates. It now raises `FileNotFoundError` with the path, and
-  `OSError` for a path that can't be looked at.
+  it had no templates. It now raises `FileNotFoundError`, and `OSError` for a
+  path or a directory under it that can't be read, with `errno` and `filename`
+  set. A directory that may not be there, such as `C:\Windows\SysWOW64`,
+  needs an `os.path.isdir` check or an `except FileNotFoundError` around it.
 
 ### Added
 

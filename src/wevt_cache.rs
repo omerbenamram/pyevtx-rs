@@ -489,9 +489,9 @@ fn collect_input_paths(
         queue.push_back(input.to_path_buf());
 
         while let Some(dir) = queue.pop_front() {
-            let entries = std::fs::read_dir(&dir).map_err(|e| py_err_from_io_err(&e))?;
+            let entries = std::fs::read_dir(&dir).map_err(|e| py_err_from_path_io_err(&dir, &e))?;
             for entry in entries {
-                let entry = entry.map_err(|e| py_err_from_io_err(&e))?;
+                let entry = entry.map_err(|e| py_err_from_path_io_err(&dir, &e))?;
                 let p = entry.path();
                 if p.is_dir() {
                     if recursive {

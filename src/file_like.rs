@@ -69,9 +69,14 @@ impl FileOrFileLike {
 
             // A text-mode file gives `str`, decoded and with its newlines translated, and a
             // log is bytes: say so here, instead of failing on whatever the decoding makes of
-            // the header.
-            let text_io_base = py.import("io")?.getattr("TextIOBase")?;
-            if bound.is_instance(&text_io_base)? {
+            // the header. Reading nothing shows what `read()` gives, for a wrapper of a text
+            // file as for an `io.TextIOBase`.
+            let reads_text = match bound.call_method1("read", (0,)) {
+                Ok(read) => read.is_instance_of::<PyString>(),
+                // Whatever is wrong with `read()`, the reader below says.
+                Err(_) => false,
+            };
+            if reads_text {
                 return Err(PyTypeError::new_err(
                     "The file object is in text mode, and an EVTX log is binary: open it in \
                      binary mode, as in open(path, \"rb\"), or pass the path itself.",
