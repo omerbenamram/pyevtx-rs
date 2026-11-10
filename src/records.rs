@@ -3,8 +3,7 @@ use std::collections::BTreeMap;
 use std::fmt::{Display, Write};
 use std::ops::Range;
 use std::panic::{self, AssertUnwindSafe};
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -89,6 +88,37 @@ pub(crate) fn warn_skipped(py: Python<'_>, error: &PyErr) -> PyResult<()> {
 /// A chunk's records, or the panic its parse ended in.
 type Parsed = Result<ChunkRecords, Box<dyn Any + Send>>;
 
+/// The chunks that the pool's threads have parsed, by number, until the iterator takes them.
+///
+/// Not a channel: a thread that waits on one parks, and on macOS a thread that has parked can't
+/// park again in a forked child (its semaphore is the parent's, and the child dies in
+/// `dispatch_semaphore_wait`). A condition variable has no such state.
+#[derive(Default)]
+struct Arrivals {
+    parsed: Mutex<Vec<(u64, Parsed)>>,
+    arrived: Condvar,
+}
+
+impl Arrivals {
+    fn send(&self, number: u64, parsed: Parsed) {
+        let mut queue = self.parsed.lock().unwrap_or_else(PoisonError::into_inner);
+        queue.push((number, parsed));
+        self.arrived.notify_one();
+    }
+
+    /// Waits until at least one chunk has been parsed, and takes what there is.
+    fn receive(&self) -> Vec<(u64, Parsed)> {
+        let mut queue = self.parsed.lock().unwrap_or_else(PoisonError::into_inner);
+        while queue.is_empty() {
+            queue = self
+                .arrived
+                .wait(queue)
+                .unwrap_or_else(PoisonError::into_inner);
+        }
+        std::mem::take(&mut *queue)
+    }
+}
+
 #[gen_stub_pyclass]
 #[pyclass(frozen)]
 pub struct PyRecordsIterator {
@@ -113,7 +143,6 @@ impl PyRecordsIterator {
         num_threads: usize,
         skip_errors: bool,
     ) -> Self {
-        let (sender, receiver) = mpsc::channel();
         let chunks = ChunkPipeline {
             chunks,
             settings,
@@ -124,8 +153,7 @@ impl PyRecordsIterator {
             next_out: 0,
             exhausted: false,
             parsed: BTreeMap::new(),
-            sender,
-            receiver,
+            arrivals: Arc::default(),
         };
         PyRecordsIterator {
             records: Mutex::new(Records {
@@ -186,8 +214,7 @@ struct ChunkPipeline {
     next_out: u64,
     exhausted: bool,
     parsed: BTreeMap<u64, Parsed>,
-    sender: Sender<(u64, Parsed)>,
-    receiver: Receiver<(u64, Parsed)>,
+    arrivals: Arc<Arrivals>,
 }
 
 impl ChunkPipeline {
@@ -202,6 +229,20 @@ impl ChunkPipeline {
             });
         }
         loop {
+            if self.next_in != self.next_out && self.process != std::process::id() {
+                // The threads that were parsing the chunks in flight stayed in the parent. So
+                // did whichever of them held the lock of `arrivals`, if one did: the child
+                // starts a new one, before it hands out any chunk.
+                self.process = std::process::id();
+                self.arrivals = Arc::default();
+                self.parsed.clear();
+                let lost = self.next_in - self.next_out;
+                self.next_out = self.next_in;
+                return Some(ChunkRecords::failed(PyRuntimeError::new_err(format!(
+                    "The process forked while {lost} chunk(s) were being parsed, and their \
+                     records are lost. Create the parser after the fork."
+                ))));
+            }
             self.fill();
             if let Some(parsed) = self.parsed.remove(&self.next_out) {
                 self.next_out += 1;
@@ -212,19 +253,7 @@ impl ChunkPipeline {
             if self.next_out == self.next_in {
                 return None;
             }
-            if self.process != std::process::id() {
-                // The threads that were parsing the chunks in flight stayed in the parent.
-                self.process = std::process::id();
-                self.parsed.clear();
-                let lost = self.next_in - self.next_out;
-                self.next_out = self.next_in;
-                return Some(ChunkRecords::failed(PyRuntimeError::new_err(format!(
-                    "The process forked while {lost} chunk(s) were being parsed, and their \
-                     records are lost. Create the parser after the fork."
-                ))));
-            }
-            let (number, parsed) = self.receiver.recv().expect("the pipeline keeps a sender");
-            self.parsed.insert(number, parsed);
+            self.parsed.extend(self.arrivals.receive());
         }
     }
 
@@ -250,14 +279,13 @@ impl ChunkPipeline {
                 }
             };
             let settings = Arc::clone(&self.settings);
-            let (output_format, sender) = (self.output_format, self.sender.clone());
+            let (output_format, arrivals) = (self.output_format, Arc::clone(&self.arrivals));
             let parse = move || {
                 // A panic is passed on to the caller: left to rayon, it would abort the process.
                 let parsed = panic::catch_unwind(AssertUnwindSafe(|| {
                     chunk_records(chunk, &settings, output_format)
                 }));
-                // The receiver is gone if the iterator was dropped.
-                let _ = sender.send((number, parsed));
+                arrivals.send(number, parsed);
             };
             // Asked for each time: after a fork, the pool is a new one (see `crate::pool`).
             match crate::pool::pool() {
