@@ -21,8 +21,9 @@ This project is published to PyPI as `evtx`. Its version is independent of the `
 
 The merge runs `.github/workflows/auto-tag.yml`. It sees a `Cargo.toml` version with no tag,
 pushes the `X.Y.Z` tag on the merge commit, and runs `.github/workflows/ci.yml` on the tag. Once
-every wheel job passes, its `release` job creates the GitHub release, with the wheels attached
-and the version's notes, then publishes the wheels to PyPI with `uv publish`. If the version has
+every wheel job, the tests of the abi3 wheel on the other Python versions and the source
+distribution's job pass, its `release` job creates the GitHub release, with the wheels and the
+sdist attached and the version's notes, then publishes them to PyPI with `uv publish`. If the version has
 no notes in `CHANGELOG.md`, auto-tag fails without tagging it; merging a PR that adds them runs
 it again.
 
