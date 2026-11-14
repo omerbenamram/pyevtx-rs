@@ -43,6 +43,8 @@ for record in parser.records_json():
 
 `data` is a string, so a record you only pass on costs no decoding. Call `json.loads` on the ones you look into.
 
+A parser yields its records once. A second call to `records()` or `records_json()` raises `RuntimeError`, so make a new parser to read the log again.
+
 `PyEvtxParser` takes a path (`str`, `bytes` or `os.PathLike`) or a binary file-like object with `read` and `seek`, such as an open file or `io.BytesIO`:
 
 ```python
@@ -55,7 +57,7 @@ with open("log.evtx", "rb") as f:
 
 ### Malformed records
 
-By default, a malformed record or chunk raises an exception that says which record or chunk it was and why. Records are never dropped silently. A `for` loop stops on that exception, and the iterator can still be advanced if you catch it and call `next()` again.
+By default, a malformed record or chunk raises an exception that says which record or chunk it was and why. A `for` loop stops on that exception, and the iterator can still be advanced if you catch it and call `next()` again.
 
 To keep going past such records, say so:
 
@@ -67,7 +69,7 @@ for record in parser.records_json():
     print(record["event_record_id"])
 ```
 
-Each skipped error is then a `RuntimeWarning` with the parser's message. If a chunk cannot be parsed, all its records are skipped. Use Python's `warnings` module to log or count them. Exceptions from a file object's `read` or `seek` still reach you, and warnings configured as errors still stop the iteration. The iterator always yields record dictionaries, never exception objects.
+Each skipped error is then a `RuntimeWarning` with the parser's message. If a chunk cannot be parsed, all its records are skipped. Use Python's `warnings` module to log or count them. Exceptions from a file object's `read` or `seek` still reach you, and warnings configured as errors still stop the iteration.
 
 ### Deleted records
 
@@ -143,7 +145,7 @@ The parser reads each one as it is stored. It does not derive one from the other
 
 ### Threads
 
-The records iterators parse `number_of_threads` chunks at a time, one per core by default, while the records of the chunks before them are returned. Chunks are parsed with the GIL released, so other Python threads go on meanwhile, and a file-like object is only read from a thread that iterates. With `number_of_threads=1`, chunks are parsed on that thread.
+The records iterators parse `number_of_threads` chunks at a time, one per core by default, while the records of the chunks before them are returned. Chunks are parsed with the GIL released, so other Python threads go on meanwhile, and a file-like object is only read from a thread that iterates. With `number_of_threads=1`, chunks are parsed on that thread. A number above the size of the thread pool means the size of the pool, which is one thread per core unless `RAYON_NUM_THREADS` sets it.
 
 Threads can share an iterator: a call to `next()` waits for the one before it to return, and each record goes to one of the threads. To parse several logs in parallel, give each thread its own parser and its own file object. Do not modify a shared file-like object while it is being parsed.
 
@@ -151,7 +153,7 @@ Threads can share an iterator: a call to `next()` waits for the one before it to
 
 | Argument | Default | What it does |
 | --- | --- | --- |
-| `number_of_threads` | one per core | how many chunks are parsed at the same time. `1` parses on the calling thread. A number above the size of the thread pool means the size of the pool, which is one thread per core unless `RAYON_NUM_THREADS` sets it. |
+| `number_of_threads` | one per core | how many chunks are parsed at the same time (see [Threads](#threads)) |
 | `skip_errors` | `False` | turn a record or chunk that can't be parsed into a `RuntimeWarning` |
 | `recover_records` | `False` | also yield records left in unallocated chunk space |
 | `separate_json_attributes` | `False` | in JSON, put an element's attributes in `<name>_attributes` and not under `#attributes`, so that a field such as `EventID` keeps one type |
@@ -165,25 +167,17 @@ Threads can share an iterator: a call to `next()` waits for the one before it to
 
 A record refers to a template, which is normally stored in the same chunk. When that template is missing or damaged, the record can't be rendered. The same templates are in the `WEVT_TEMPLATE` resource of the provider's binary, and a `WevtCache` holds templates collected from such binaries for the parser to fall back to.
 
-`notebooks/wevt_templates_e2e.ipynb` walks through all of it.
-
 ```python
 from evtx import PyEvtxParser, WevtCache
 
 cache = WevtCache.load("/path/to/wevt_cache.wevtcache")
-parser = PyEvtxParser("/path/to/log.evtx", wevt_cache=cache)
+parser = PyEvtxParser("/path/to/log.evtx", wevt_cache=cache)  # wevt_cache= also takes the path itself
 
 for record in parser.records_json():
     print(record["event_record_id"], record["timestamp"])
 ```
 
-You can also pass the `.wevtcache` path directly:
-
-```python
-from evtx import PyEvtxParser
-
-parser = PyEvtxParser("/path/to/log.evtx", wevt_cache="/path/to/wevt_cache.wevtcache")
-```
+The notebook [`wevt_templates_e2e.ipynb`](https://github.com/omerbenamram/pyevtx-rs/blob/master/notebooks/wevt_templates_e2e.ipynb) walks through everything below.
 
 ### Build a cache from provider binaries (EXE/DLL/SYS)
 
@@ -236,26 +230,11 @@ xml = cache.render_record_xml(
 print(xml)
 ```
 
-If you know `(provider_guid, event_id, version)` and want to look up the `template_guid` first:
-
-```python
-from evtx import WevtCache
-
-cache = WevtCache.load("/path/to/wevt_cache.wevtcache")
-template_guid = cache.resolve_template_guid(
-    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-    7000,
-    0,
-)
-print(template_guid)
-```
+`cache.resolve_template_guid(provider_guid, event_id, version)` looks up the `template_guid`, as in the example above.
 
 You can also render a template directly from a Python substitutions list:
 
 ```python
-from evtx import WevtCache
-
-cache = WevtCache.load("/path/to/wevt_cache.wevtcache")
 xml = cache.render_template_xml(
     "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
     ["foo", 123, None, True],
@@ -325,8 +304,8 @@ print(xml)
 - macOS x86_64 and arm64
 - Windows x86_64
 
-One `abi3` wheel covers CPython 3.10 and later. Free-threaded CPython 3.14 has its own `cp314-cp314t` wheel for each of those platforms. Importing `evtx` there does not re-enable the GIL, and CI runs the test suite with the GIL disabled on the Linux x86_64 (glibc), macOS and Windows ones.
+One `abi3` wheel covers CPython 3.10 and later. Free-threaded CPython 3.14 has its own `cp314-cp314t` wheel for each of those platforms. Importing `evtx` there does not re-enable the GIL, and CI tests the Linux x86_64 (glibc), macOS and Windows ones with the GIL disabled.
 
 Releases after 0.15.0 also have a source distribution on PyPI, which pip builds on a platform or Python version without a wheel. That needs a stable Rust compiler. pip installs the build tool, Maturin, by itself. PyPy is not tested.
 
-To build from a checkout, run `pip install .`, or `pip install -e .` to keep working on it. On free-threaded Python that is `python3.14t -m pip install .`, and it needs Maturin 1.15 or newer, which pip also installs by itself.
+To build from a checkout, run `pip install .`, or `pip install -e .` to keep working on it. On free-threaded Python that is `python3.14t -m pip install .`.
