@@ -9,6 +9,8 @@ Read Windows event logs (`.evtx`) from Python, on any platform. These are the Py
 pip install evtx
 ```
 
+This example reads a log from the [`samples`](https://github.com/omerbenamram/pyevtx-rs/tree/master/samples) folder of this repository. Give it the path of your own `.evtx` file instead.
+
 ```python
 import json
 from evtx import PyEvtxParser
@@ -34,10 +36,10 @@ for record in parser.records_json():
 
 | Key | Value |
 | --- | --- |
-| `event_record_id` | the record's number in the log |
+| `event_record_id` | the record ID from the record's header |
 | `timestamp` | the time in the record's header, as a string in UTC |
 | `data` | the event, as a JSON string from `records_json()` or an XML string from `records()` |
-| `recovered` | `True` for a record found in unallocated space, with `recover_records=True` (see below) |
+| `recovered` | `True` for a record found in unallocated space, with `recover_records=True` (see below). `False` for every other record. |
 
 `data` is a string, so a record you only pass on costs no decoding. Call `json.loads` on the ones you look into.
 
@@ -149,13 +151,13 @@ Threads can share an iterator: a call to `next()` waits for the one before it to
 
 | Argument | Default | What it does |
 | --- | --- | --- |
-| `number_of_threads` | one per core | how many chunks are parsed at the same time. `1` parses on the calling thread. |
+| `number_of_threads` | one per core | how many chunks are parsed at the same time. `1` parses on the calling thread. A number above the size of the thread pool means the size of the pool, which is one thread per core unless `RAYON_NUM_THREADS` sets it. |
 | `skip_errors` | `False` | turn a record or chunk that can't be parsed into a `RuntimeWarning` |
 | `recover_records` | `False` | also yield records left in unallocated chunk space |
 | `separate_json_attributes` | `False` | in JSON, put an element's attributes in `<name>_attributes` and not under `#attributes`, so that a field such as `EventID` keeps one type |
 | `indent` | `True` | indent the XML. JSON is always compact. |
 | `ansi_codec` | `windows-1252` | the encoding of ANSI strings in the log, such as `windows-1251` or `gbk` |
-| `validate_checksums` | `False` | fail on a chunk whose CRC32 doesn't match. Dirty logs usually have one. |
+| `validate_checksums` | `False` | fail on a chunk whose CRC32 doesn't match. A log that was not closed cleanly can have one. |
 | `mta` | `None` | an `.MTA` file to take message text from |
 | `wevt_cache` | `None` | templates for records whose template is missing from the log (see below) |
 
@@ -323,7 +325,7 @@ print(xml)
 - macOS x86_64 and arm64
 - Windows x86_64
 
-One `abi3` wheel covers CPython 3.10 and later. Free-threaded CPython 3.14 has its own `cp314-cp314t` wheel for each of those platforms. Importing `evtx` there does not re-enable the GIL, and CI runs the test suite on those wheels with the GIL disabled.
+One `abi3` wheel covers CPython 3.10 and later. Free-threaded CPython 3.14 has its own `cp314-cp314t` wheel for each of those platforms. Importing `evtx` there does not re-enable the GIL, and CI runs the test suite with the GIL disabled on the Linux x86_64 (glibc), macOS and Windows ones.
 
 Releases after 0.15.0 also have a source distribution on PyPI, which pip builds on a platform or Python version without a wheel. That needs a stable Rust compiler. pip installs the build tool, Maturin, by itself. PyPy is not tested.
 
