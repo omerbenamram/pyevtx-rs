@@ -42,7 +42,7 @@ use crate::records::{warn_skipped, OutputFormat, PyRecordsIterator};
 ///         in an object of their own, `<name>_attributes`, instead of under
 ///         `#attributes`. Off by default.
 ///
-///     `indent` (bool, optional): indent the XML and JSON. On by default.
+///     `indent` (bool, optional): indent the XML. On by default. JSON is always compact.
 ///
 ///     `wevt_cache` (WevtCache, str, bytes or `os.PathLike`, optional): `WEVT_TEMPLATE` templates,
 ///         as a `WevtCache` or the path of a `.wevtcache` file, to render the records
