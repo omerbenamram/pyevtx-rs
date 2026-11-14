@@ -1,132 +1,65 @@
-<div align="center">
-  <!-- Downloads -->
-  <a href="https://pypi.org/project/evtx/">
-    <img src="https://pepy.tech/badge/evtx"
-      alt="Download" />
-  </a>
-</div>
-
-
 # pyevtx-rs
 
-Python bindings for `https://github.com/omerbenamram/evtx/`.
+[![PyPI](https://img.shields.io/pypi/v/evtx.svg)](https://pypi.org/project/evtx/)
+[![Downloads](https://pepy.tech/badge/evtx)](https://pypi.org/project/evtx/)
 
-## Installation
+Read Windows event logs (`.evtx`) from Python, on any platform. These are the Python bindings for the Rust [`evtx`](https://github.com/omerbenamram/evtx) parser.
 
-Available on PyPi - https://pypi.org/project/evtx/.
-
-To install from PyPi - `pip install evtx`
-
-### Wheels
-
-Wheels are built for CPython 3.10 and later, using the abi3 stable ABI tag (one wheel is
-compatible with all versions from 3.10 onwards), and for free-threaded CPython 3.14.
-
-Supported platforms are:
-  - Linux x86_64 and arm64 (glibc and musl)
-  - macOS x86_64 and arm64
-  - Windows x86_64
-
-### Installation from sources
-
-Releases after 0.15.0 also have a source distribution on PyPI, which `pip install evtx` builds
-on platforms and Python versions without a wheel. This requires a Rust compiler (stable); pip
-installs the build tool, Maturin, by itself. PyPy is not tested.
-
-To build from a checkout, run `pip install .`, or `pip install -e .` to keep working on it.
-
-### Free-threaded Python 3.14
-
-Free-threaded CPython 3.14 requires a version-specific `cp314-cp314t` wheel;
-the ordinary `cp310-abi3` wheels are for GIL-enabled CPython. Releases ship both
-variants for every supported target. Importing `evtx` does not re-enable the
-GIL, and CI runs the test suite on the free-threaded wheels with the GIL
-disabled, without a `PYTHON_GIL` override.
-
-For a source build, use a free-threaded Python environment and Maturin 1.15 or
-newer (the build-system requirement installs it automatically with pip):
-
-```sh
-python3.14t -m pip install .
+```
+pip install evtx
 ```
 
-Threads that share an iterator take turns, so to parse in parallel, give each
-thread its own parser and file handle. Do not modify a shared file-like object
-while parsing it. The tests exercise parallel XML/JSON parsing from paths and
-in-memory streams while Python garbage collection runs.
+This example reads a log from the [`samples`](https://github.com/omerbenamram/pyevtx-rs/tree/master/samples) folder of this repository. Give it the path of your own `.evtx` file instead.
+
+```python
+import json
+from evtx import PyEvtxParser
+
+parser = PyEvtxParser("samples/Security_short_selected.evtx")
+for record in parser.records_json():
+    event = json.loads(record["data"])["Event"]
+    print(record["event_record_id"], record["timestamp"], event["System"]["EventID"])
+```
+
+```
+1 2016-06-29T15:24:34.346Z UTC 5152
+2 2016-06-29T15:24:36.686Z UTC 4611
+3 2016-06-29T15:24:36.686Z UTC 4776
+...
+```
 
 ## Usage
 
-### Parsing EVTX files
+### Records
 
-This will print each record as an XML string.
+`records_json()` and `records()` yield one `dict` per record, with these keys:
 
-```python
-from evtx import PyEvtxParser
+| Key | Value |
+| --- | --- |
+| `event_record_id` | the record ID from the record's header |
+| `timestamp` | the time in the record's header, as a string in UTC |
+| `data` | the event, as a JSON string from `records_json()` or an XML string from `records()` |
+| `recovered` | `True` for a record found in unallocated space, with `recover_records=True` (see below). `False` for every other record. |
 
+`data` is a string, so a record you only pass on costs no decoding. Call `json.loads` on the ones you look into.
 
-def main():
-    parser = PyEvtxParser("./samples/Security_short_selected.evtx")
-    for record in parser.records():
-        print(f'Event Record ID: {record["event_record_id"]}')
-        print(f'Record Header Timestamp: {record["timestamp"]}')
-        print(record['data'])
-        print(f'------------------------------------------')
-```
+A parser yields its records once. A second call to `records()` or `records_json()` raises `RuntimeError`, so make a new parser to read the log again.
 
-
-And this will print each record as a JSON string.
+`PyEvtxParser` takes a path (`str`, `bytes` or `os.PathLike`) or a binary file-like object with `read` and `seek`, such as an open file or `io.BytesIO`:
 
 ```python
 from evtx import PyEvtxParser
 
-
-def main():
-    parser = PyEvtxParser("./samples/Security_short_selected.evtx")
-    for record in parser.records_json():
-        print(f'Event Record ID: {record["event_record_id"]}')
-        print(f'Record Header Timestamp: {record["timestamp"]}')
-        print(record['data'])
-        print(f'------------------------------------------')
+with open("log.evtx", "rb") as f:
+    for record in PyEvtxParser(f).records():
+        print(record["data"])  # XML
 ```
 
-File-like objects are also supported.
+### Malformed records
 
-```python
-from evtx import PyEvtxParser
+By default, a malformed record or chunk raises an exception that says which record or chunk it was and why. A `for` loop stops on that exception, and the iterator can still be advanced if you catch it and call `next()` again.
 
-
-def main():
-    a = open("./samples/Security_short_selected.evtx", 'rb')
-
-    # io.BytesIO is also supported.
-    parser = PyEvtxParser(a)
-    for record in parser.records_json():
-        print(f'Event Record ID: {record["event_record_id"]}')
-        print(f'Record Header Timestamp: {record["timestamp"]}')
-        print(record['data'])
-        print(f'------------------------------------------')
-```
-
-### Threads
-
-The records iterators parse `number_of_threads` chunks at a time, one per core
-by default, while the records of the chunks before them are returned. Chunks are
-parsed with the GIL released, so other Python threads go on meanwhile, and a
-file-like object is only read from a thread that iterates. With
-`number_of_threads=1`, chunks are parsed on that thread.
-
-Threads can share an iterator: a call to `next()` waits for the one before it to
-return, and each record goes to one of the threads.
-
-### Handling malformed records
-
-By default, a malformed record or chunk raises an exception with its available
-record/chunk context and underlying cause. Records are not silently dropped.
-A normal `for` loop stops on that exception; the iterator can still be advanced
-if you catch it and call `next()` again.
-
-To keep processing recoverable parse failures automatically, opt in explicitly:
+To keep going past such records, say so:
 
 ```python
 from evtx import PyEvtxParser
@@ -136,19 +69,11 @@ for record in parser.records_json():
     print(record["event_record_id"])
 ```
 
-Each skipped error emits a `RuntimeWarning`, including the parser's diagnostic
-message. If a chunk cannot be parsed, all its records are skipped. Python I/O
-exceptions still propagate, and warnings configured as errors still stop the
-iteration. Use Python's `warnings` module to capture these diagnostics; the
-iterator always yields record dictionaries, never exception objects.
+Each skipped error is then a `RuntimeWarning` with the parser's message. If a chunk cannot be parsed, all its records are skipped. Use Python's `warnings` module to log or count them. Exceptions from a file object's `read` or `seek` still reach you, and warnings configured as errors still stop the iteration.
 
-### Recovering deleted records
+### Deleted records
 
-Records can outlive their chunk's live area: clearing a log, for one, resets its
-chunks but leaves the old records in them. `recover_records=True` also yields
-the records found in that unallocated space, with `record["recovered"]` set to
-`True` (it is `False` for live records). Carved records that can't be parsed
-are left out.
+Clearing a log resets its chunks but leaves the old records in them, and records also stay in the slack after a chunk's last record. `recover_records=True` yields those too, with `record["recovered"]` set to `True`. The ones that can't be parsed are left out.
 
 ```python
 from evtx import PyEvtxParser
@@ -159,13 +84,9 @@ for record in parser.records_json():
         print("recovered", record["event_record_id"])
 ```
 
-### Localized strings from `.MTA` files
+### Message text from `.MTA` files
 
-A log saved from Event Viewer with display information has a `LocaleMetaData`
-folder next to it, with an `.MTA` file for each language. Pass one as `mta=`,
-and each record gets a `RenderingInfo` element with its message and its level,
-task, opcode and keyword names, so that a log from another machine renders
-with its strings:
+A record holds an event ID and its values, not the text Event Viewer shows for it. A log saved from Event Viewer with display information has a `LocaleMetaData` folder next to it, with an `.MTA` file for each language. Pass one as `mta=`, and each record gets a `RenderingInfo` element with its message and its level, task, opcode and keyword names:
 
 ```python
 from evtx import PyEvtxParser
@@ -175,9 +96,7 @@ parser = PyEvtxParser("log.evtx", mta="LocaleMetaData/log_1033.MTA")
 
 ### File and chunk headers
 
-`parser.header` gives what the log's file header says, and `parser.chunks()`
-what each chunk's header says, without parsing any record, much as
-`evtx_dump info` shows them. They help with triaging dirty, wrapped or damaged logs:
+`parser.header` gives what the log's file header says, and `parser.chunks()` what each chunk's header says, without parsing any record, much as `evtx_dump info` shows them. Start here with a log that is dirty, has wrapped around, or looks damaged:
 
 ```python
 from evtx import PyEvtxParser
@@ -202,25 +121,14 @@ for record in parser.records():
     ...
 ```
 
-The chunks come in the order `records()` reads them, from the one that holds
-the oldest records, so a log that has wrapped around starts in the middle of
-the file. `number` is a chunk's place in the file, and an error about a record
-names its chunk by it. The checksums are checked whatever `validate_checksums`
-says.
+The chunks come in the order `records()` reads them, from the one that holds the oldest records, so a log that has wrapped around starts in the middle of the file. `number` is a chunk's place in the file, and an error about a record names its chunk by it. The checksums are checked whatever `validate_checksums` says.
 
-### Record timestamps and event timestamps
+### Two timestamps
 
-Each result contains two independently stored timestamps:
+Each record has two timestamps, stored in different places:
 
-- `record["timestamp"]` is the **EVTX record-header timestamp**, decoded from the
-  header's Windows FILETIME value and formatted in UTC.
-- `Event/System/TimeCreated/@SystemTime` is part of the **event payload** in
-  `record["data"]`. Windows defines it as the time the event was logged; see the
-  [Windows event schema](https://learn.microsoft.com/en-us/windows/win32/wes/eventschema-timecreated-systempropertiestype-element).
-
-Use `TimeCreated` when comparing the event time shown by Event Viewer. Its UI may
-display local time, so normalize time zones before comparing. In the default JSON
-format, read both values like this:
+- `record["timestamp"]` is from the record's header.
+- `Event/System/TimeCreated/@SystemTime`, inside `record["data"]`, is the time the event was logged, as Windows [defines it](https://learn.microsoft.com/en-us/windows/win32/wes/eventschema-timecreated-systempropertiestype-element). It is the time Event Viewer shows, converted to local time.
 
 ```python
 import json
@@ -230,46 +138,50 @@ record = next(PyEvtxParser("./samples/Security_short_selected.evtx").records_jso
 event = json.loads(record["data"])
 header_time = record["timestamp"]
 event_time = event["Event"]["System"]["TimeCreated"]["#attributes"]["SystemTime"]
-print(header_time, event_time)
+print(header_time, event_time)  # 2016-06-29T15:24:34.346Z UTC 2016-06-29T15:24:34.3460000Z
 ```
 
-The parser does not derive one timestamp from the other or apply a fixed delay.
-They can differ in value and fractional-second precision because they come from
-different fields. A gap such as 30 seconds cannot be attributed to buffering or
-another producer behavior without examining the original event. Keep both values
-when that distinction matters; do not overwrite one to make them agree.
+The parser reads each one as it is stored. It does not derive one from the other, so they can differ in value and in precision. When a difference matters to you, keep both. Nothing in the file says why two values differ.
 
-### WEVT template cache (offline rendering fallback)
+### Threads
 
-When EVTX embedded templates are missing/corrupted, the Rust `evtx` crate can optionally fall back
-to an offline `WEVT_TEMPLATE` cache (provider resources). This Python extension exposes that cache
-as `WevtCache`.
+The records iterators parse `number_of_threads` chunks at a time, one per core by default, while the records of the chunks before them are returned. Chunks are parsed with the GIL released, so other Python threads go on meanwhile, and a file-like object is only read from a thread that iterates. With `number_of_threads=1`, chunks are parsed on that thread. A number above the size of the thread pool means the size of the pool, which is one thread per core unless `RAYON_NUM_THREADS` sets it.
 
-For an end-to-end walkthrough (including a synthetic PE fixture patched to contain a valid CRIM),
-see `notebooks/wevt_templates_e2e.ipynb`.
+Threads can share an iterator: a call to `next()` waits for the one before it to return, and each record goes to one of the threads. To parse several logs in parallel, give each thread its own parser and its own file object. Do not modify a shared file-like object while it is being parsed.
+
+### Options
+
+| Argument | Default | What it does |
+| --- | --- | --- |
+| `number_of_threads` | one per core | how many chunks are parsed at the same time (see [Threads](#threads)) |
+| `skip_errors` | `False` | turn a record or chunk that can't be parsed into a `RuntimeWarning` |
+| `recover_records` | `False` | also yield records left in unallocated chunk space |
+| `separate_json_attributes` | `False` | in JSON, put an element's attributes in `<name>_attributes` and not under `#attributes`, so that a field such as `EventID` keeps one type |
+| `indent` | `True` | indent the XML. JSON is always compact. |
+| `ansi_codec` | `windows-1252` | the encoding of ANSI strings in the log, such as `windows-1251` or `gbk` |
+| `validate_checksums` | `False` | fail on a chunk whose CRC32 doesn't match. A log that was not closed cleanly can have one. |
+| `mta` | `None` | an `.MTA` file to take message text from |
+| `wevt_cache` | `None` | templates for records whose template is missing from the log (see below) |
+
+## Records whose template is missing
+
+A record refers to a template, which is normally stored in the same chunk. When that template is missing or damaged, the record can't be rendered. The same templates are in the `WEVT_TEMPLATE` resource of the provider's binary, and a `WevtCache` holds templates collected from such binaries for the parser to fall back to.
 
 ```python
 from evtx import PyEvtxParser, WevtCache
 
 cache = WevtCache.load("/path/to/wevt_cache.wevtcache")
-parser = PyEvtxParser("/path/to/log.evtx", wevt_cache=cache)
+parser = PyEvtxParser("/path/to/log.evtx", wevt_cache=cache)  # wevt_cache= also takes the path itself
 
 for record in parser.records_json():
     print(record["event_record_id"], record["timestamp"])
 ```
 
-You can also pass the `.wevtcache` path directly:
-
-```python
-from evtx import PyEvtxParser
-
-parser = PyEvtxParser("/path/to/log.evtx", wevt_cache="/path/to/wevt_cache.wevtcache")
-```
+The notebook [`wevt_templates_e2e.ipynb`](https://github.com/omerbenamram/pyevtx-rs/blob/master/notebooks/wevt_templates_e2e.ipynb) walks through everything below.
 
 ### Build a cache from provider binaries (EXE/DLL/SYS)
 
-You can generate the cache directly from Python by scanning provider binaries and extracting their
-`WEVT_TEMPLATE` resources into an **in-memory** cache:
+`add_dll` and `add_dir` read the `WEVT_TEMPLATE` resources of provider binaries into the cache, in memory:
 
 ```python
 import os
@@ -294,14 +206,9 @@ cache.dump("wevt_cache_out.wevtcache", overwrite=True)
 print(cache.resolve_template_guid("555908D1-A6D7-4695-8E1E-26931D2012F4", 7000, 0))
 ```
 
-### End-to-end offline rendering (TemplateInstance + cache)
+### Render one record from the cache
 
-If you have:
-
-- An offline cache file (`.wevtcache`) (from `evtx_dump extract-wevt-templates`)
-- An EVTX record that contains a `TemplateInstance` (substitution values)
-
-…you can render the record’s template offline:
+With a cache file (from `WevtCache.dump`, or from `evtx_dump extract-wevt-templates`) and a record, which carries the values for its template, you can render that record's template yourself:
 
 ```python
 from evtx import WevtCache
@@ -323,26 +230,11 @@ xml = cache.render_record_xml(
 print(xml)
 ```
 
-If you know `(provider_guid, event_id, version)` and want to look up the `template_guid` first:
-
-```python
-from evtx import WevtCache
-
-cache = WevtCache.load("/path/to/wevt_cache.wevtcache")
-template_guid = cache.resolve_template_guid(
-    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-    7000,
-    0,
-)
-print(template_guid)
-```
+`cache.resolve_template_guid(provider_guid, event_id, version)` looks up the `template_guid`, as in the example above.
 
 You can also render a template directly from a Python substitutions list:
 
 ```python
-from evtx import WevtCache
-
-cache = WevtCache.load("/path/to/wevt_cache.wevtcache")
 xml = cache.render_template_xml(
     "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
     ["foo", 123, None, True],
@@ -350,10 +242,9 @@ xml = cache.render_template_xml(
 print(xml)
 ```
 
-### WEVT manifest introspection (`evtx.wevt`)
+### Look inside a manifest (`evtx.wevt`)
 
-For low-level exploration of `WEVT_TEMPLATE` resources (similar to `pyfwevt`), use the `evtx.wevt` module
-to parse raw CRIM blobs and inspect providers, events, and templates:
+The `evtx.wevt` module parses a raw `WEVT_TEMPLATE` resource (a CRIM blob) and lists its providers, events and templates, much as `pyfwevt` does:
 
 ```python
 from evtx.wevt import Manifest
@@ -404,3 +295,17 @@ print(xml)
 | `Template` | Template with GUID and items |
 | `Template.to_xml(ansi_codec=None)` | Render BinXML to XML string |
 | `TemplateItem` | Substitution slot (name, input/output types) |
+
+## Installation details
+
+`pip install evtx` gets a wheel, with nothing to compile, on:
+
+- Linux x86_64 and arm64 (glibc and musl)
+- macOS x86_64 and arm64
+- Windows x86_64
+
+One `abi3` wheel covers CPython 3.10 and later. Free-threaded CPython 3.14 has its own `cp314-cp314t` wheel for each of those platforms. Importing `evtx` there does not re-enable the GIL, and CI tests the Linux x86_64 (glibc), macOS and Windows ones with the GIL disabled.
+
+Releases after 0.15.0 also have a source distribution on PyPI, which pip builds on a platform or Python version without a wheel. That needs a stable Rust compiler. pip installs the build tool, Maturin, by itself. PyPy is not tested.
+
+To build from a checkout, run `pip install .`, or `pip install -e .` to keep working on it. On free-threaded Python that is `python3.14t -m pip install .`.
